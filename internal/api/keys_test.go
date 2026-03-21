@@ -1,0 +1,175 @@
+package api
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	v1 "github.com/juanfont/headscale/gen/go/headscale/v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/alam0rt/headtotail/internal/headscale"
+	"github.com/alam0rt/headtotail/internal/model"
+)
+
+func TestListKeys(t *testing.T) {
+	m := &headscale.MockHeadscaleClient{}
+	m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{
+		{Id: 1, Key: "abc123", Reusable: false, Ephemeral: true},
+		{Id: 2, Key: "def456", Reusable: true, Ephemeral: false},
+	}, nil)
+
+	router, tok := setupTestRouter(m)
+	w := doRequest(router, http.MethodGet, "/api/v2/tailnet/-/keys", tok)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp model.KeyList
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Len(t, resp.Keys, 2)
+	assert.Equal(t, "1", resp.Keys[0].ID)
+	assert.Equal(t, "2", resp.Keys[1].ID)
+	m.AssertExpectations(t)
+}
+
+func TestCreateKey(t *testing.T) {
+	m := &headscale.MockHeadscaleClient{}
+	m.On("ListUsers", mock.Anything).Return([]*v1.User{
+		{Id: 1, Name: "default"},
+	}, nil)
+	m.On("CreatePreAuthKey", mock.Anything, mock.MatchedBy(func(req *v1.CreatePreAuthKeyRequest) bool {
+		return req.User == 1 && req.Ephemeral
+	})).Return(&v1.PreAuthKey{
+		Id:       42,
+		Key:      "newkey123",
+		Ephemeral: true,
+	}, nil)
+
+	router, tok := setupTestRouter(m)
+
+	body, _ := json.Marshal(model.CreateKeyRequest{
+		Capabilities: model.KeyCapability{
+			Devices: model.KeyCapabilityDevices{
+				Create: model.KeyCapabilityDevicesCreate{
+					Ephemeral:     true,
+					Preauthorized: true,
+				},
+			},
+		},
+		ExpirySeconds: 3600,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v2/tailnet/-/keys", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+tok)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp model.Key
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Equal(t, "42", resp.ID)
+	assert.Contains(t, resp.Key, "tskey-auth-")
+	m.AssertExpectations(t)
+}
+
+func TestGetKey(t *testing.T) {
+	tests := []struct {
+		name       string
+		keyID      string
+		mockSetup  func(*headscale.MockHeadscaleClient)
+		wantStatus int
+	}{
+		{
+			name:  "found",
+			keyID: "1",
+			mockSetup: func(m *headscale.MockHeadscaleClient) {
+				m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{
+					{Id: 1, Key: "k1"},
+				}, nil)
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:  "not found",
+			keyID: "999",
+			mockSetup: func(m *headscale.MockHeadscaleClient) {
+				m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{
+					{Id: 1, Key: "k1"},
+				}, nil)
+			},
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &headscale.MockHeadscaleClient{}
+			tt.mockSetup(m)
+			router, tok := setupTestRouter(m)
+
+			w := doRequest(router, http.MethodGet,
+				fmt.Sprintf("/api/v2/tailnet/-/keys/%s", tt.keyID), tok)
+			assert.Equal(t, tt.wantStatus, w.Code)
+			m.AssertExpectations(t)
+		})
+	}
+}
+
+func TestDeleteKey(t *testing.T) {
+	m := &headscale.MockHeadscaleClient{}
+	m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{
+		{Id: 5, Key: "k5"},
+	}, nil)
+	m.On("ExpirePreAuthKey", mock.Anything, uint64(5)).Return(nil)
+	m.On("DeletePreAuthKey", mock.Anything, uint64(5)).Return(nil)
+
+	router, tok := setupTestRouter(m)
+	w := doRequest(router, http.MethodDelete, "/api/v2/tailnet/-/keys/5", tok)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	m.AssertExpectations(t)
+}
+
+func TestDeleteKeyNotFound(t *testing.T) {
+	m := &headscale.MockHeadscaleClient{}
+	m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{}, nil)
+
+	router, tok := setupTestRouter(m)
+	w := doRequest(router, http.MethodDelete, "/api/v2/tailnet/-/keys/999", tok)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	m.AssertExpectations(t)
+}
+
+func TestPutKeyNotImplemented(t *testing.T) {
+	m := &headscale.MockHeadscaleClient{}
+	router, tok := setupTestRouter(m)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v2/tailnet/-/keys/1", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotImplemented, w.Code)
+	var errResp model.Error
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&errResp))
+	assert.Equal(t, "not implemented by headapi", errResp.Message)
+}
+
+func TestListKeysGRPCError(t *testing.T) {
+	m := &headscale.MockHeadscaleClient{}
+	m.On("ListPreAuthKeys", mock.Anything).
+		Return(nil, status.Error(codes.Internal, "grpc down"))
+
+	router, tok := setupTestRouter(m)
+	w := doRequest(router, http.MethodGet, "/api/v2/tailnet/-/keys", tok)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	m.AssertExpectations(t)
+}
