@@ -162,7 +162,7 @@ func TestPutKeyNotImplemented(t *testing.T) {
 	assert.Equal(t, http.StatusNotImplemented, w.Code)
 	var errResp model.Error
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&errResp))
-	assert.Equal(t, "not implemented by headtotails", errResp.Message)
+	assert.Equal(t, "OAuth client and federated identity keys are Tailscale SaaS features", errResp.Message)
 }
 
 func TestListKeysGRPCError(t *testing.T) {

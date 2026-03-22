@@ -28,6 +28,13 @@ func notImplemented(w http.ResponseWriter, _ *http.Request) {
 	writeError(w, http.StatusNotImplemented, "not implemented by headtotails")
 }
 
+// notImplementedReason returns a handler that responds with 501 and a specific reason.
+func notImplementedReason(reason string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeError(w, http.StatusNotImplemented, reason)
+	}
+}
+
 // grpcStatusToHTTP maps gRPC status codes to HTTP status codes.
 func grpcStatusToHTTP(err error) int {
 	switch status.Code(err) {

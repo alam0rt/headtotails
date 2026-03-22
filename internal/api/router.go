@@ -79,15 +79,19 @@ func (ro *Router) Build() chi.Router {
 		r.Get("/device/{deviceId}/routes", d.GetDeviceRoutes)
 		r.Post("/device/{deviceId}/routes", d.SetDeviceRoutes)
 		// Unimplemented device endpoints.
-		r.Post("/device/{deviceId}/ip", notImplemented)
-		r.Post("/device/{deviceId}/key", notImplemented)
-		r.Patch("/tailnet/{tailnet}/device-attributes", notImplemented)
-		r.Get("/device/{deviceId}/attributes", notImplemented)
-		r.Post("/device/{deviceId}/attributes/{key}", notImplemented)
-		r.Delete("/device/{deviceId}/attributes/{key}", notImplemented)
+		deviceIP := notImplementedReason("headscale assigns IPs at registration; no runtime IP assignment API")
+		r.Post("/device/{deviceId}/ip", deviceIP)
+		deviceKey := notImplementedReason("device key expiry management is a Tailscale SaaS feature")
+		r.Post("/device/{deviceId}/key", deviceKey)
+		posture := notImplementedReason("device posture is a Tailscale SaaS feature; headscale has no posture API")
+		r.Patch("/tailnet/{tailnet}/device-attributes", posture)
+		r.Get("/device/{deviceId}/attributes", posture)
+		r.Post("/device/{deviceId}/attributes/{key}", posture)
+		r.Delete("/device/{deviceId}/attributes/{key}", posture)
 		// Device invites.
-		r.Get("/device/{deviceId}/device-invites", notImplemented)
-		r.Post("/device/{deviceId}/device-invites", notImplemented)
+		deviceInvites := notImplementedReason("device invites are a Tailscale SaaS feature; headscale has no invite concept")
+		r.Get("/device/{deviceId}/device-invites", deviceInvites)
+		r.Post("/device/{deviceId}/device-invites", deviceInvites)
 
 		// Auth keys.
 		k := &keysHandler{hs: ro.hs, tailnetName: ro.tailnetName}
@@ -95,78 +99,91 @@ func (ro *Router) Build() chi.Router {
 		r.Post("/tailnet/{tailnet}/keys", k.CreateKey)
 		r.Get("/tailnet/{tailnet}/keys/{keyId}", k.GetKey)
 		r.Delete("/tailnet/{tailnet}/keys/{keyId}", k.DeleteKey)
-		r.Put("/tailnet/{tailnet}/keys/{keyId}", notImplemented)
+		r.Put("/tailnet/{tailnet}/keys/{keyId}", notImplementedReason("OAuth client and federated identity keys are Tailscale SaaS features"))
 
 		// Users.
 		u := &usersHandler{hs: ro.hs}
 		r.Get("/tailnet/{tailnet}/users", u.ListUsers)
 		r.Get("/users/{userId}", u.GetUser)
 		r.Post("/users/{userId}/delete", u.DeleteUser)
-		r.Post("/users/{userId}/approve", notImplemented)
-		r.Post("/users/{userId}/suspend", notImplemented)
-		r.Post("/users/{userId}/restore", notImplemented)
-		r.Post("/users/{userId}/role", notImplemented)
+		userSaaS := notImplementedReason("user approval/suspension/roles are Tailscale SaaS features; headscale manages users directly")
+		r.Post("/users/{userId}/approve", userSaaS)
+		r.Post("/users/{userId}/suspend", userSaaS)
+		r.Post("/users/{userId}/restore", userSaaS)
+		r.Post("/users/{userId}/role", userSaaS)
 
 		// Policy/ACL.
 		p := &policyHandler{hs: ro.hs}
 		r.Get("/tailnet/{tailnet}/acl", p.GetPolicy)
 		r.Post("/tailnet/{tailnet}/acl", p.SetPolicy)
-		r.Post("/tailnet/{tailnet}/acl/preview", notImplemented)
-		r.Post("/tailnet/{tailnet}/acl/validate", notImplemented)
+		aclSaaS := notImplementedReason("headscale has no dedicated policy validation or preview gRPC endpoint")
+		r.Post("/tailnet/{tailnet}/acl/preview", aclSaaS)
+		r.Post("/tailnet/{tailnet}/acl/validate", aclSaaS)
 
-		// DNS — all stubs.
-		r.Get("/tailnet/{tailnet}/dns/nameservers", notImplemented)
-		r.Post("/tailnet/{tailnet}/dns/nameservers", notImplemented)
-		r.Get("/tailnet/{tailnet}/dns/preferences", notImplemented)
-		r.Post("/tailnet/{tailnet}/dns/preferences", notImplemented)
-		r.Get("/tailnet/{tailnet}/dns/searchpaths", notImplemented)
-		r.Post("/tailnet/{tailnet}/dns/searchpaths", notImplemented)
-		r.Get("/tailnet/{tailnet}/dns/configuration", notImplemented)
-		r.Post("/tailnet/{tailnet}/dns/configuration", notImplemented)
-		r.Get("/tailnet/{tailnet}/dns/split-dns", notImplemented)
-		r.Patch("/tailnet/{tailnet}/dns/split-dns", notImplemented)
-		r.Put("/tailnet/{tailnet}/dns/split-dns", notImplemented)
+		// DNS — headscale manages DNS via config file, not a runtime API.
+		dns := notImplementedReason("headscale manages DNS via its config file; no gRPC API for runtime DNS changes")
+		r.Get("/tailnet/{tailnet}/dns/nameservers", dns)
+		r.Post("/tailnet/{tailnet}/dns/nameservers", dns)
+		r.Get("/tailnet/{tailnet}/dns/preferences", dns)
+		r.Post("/tailnet/{tailnet}/dns/preferences", dns)
+		r.Get("/tailnet/{tailnet}/dns/searchpaths", dns)
+		r.Post("/tailnet/{tailnet}/dns/searchpaths", dns)
+		r.Get("/tailnet/{tailnet}/dns/configuration", dns)
+		r.Post("/tailnet/{tailnet}/dns/configuration", dns)
+		r.Get("/tailnet/{tailnet}/dns/split-dns", dns)
+		r.Patch("/tailnet/{tailnet}/dns/split-dns", dns)
+		r.Put("/tailnet/{tailnet}/dns/split-dns", dns)
 
-		// Webhooks — all stubs.
-		r.Get("/tailnet/{tailnet}/webhooks", notImplemented)
-		r.Post("/tailnet/{tailnet}/webhooks", notImplemented)
-		r.Get("/tailnet/{tailnet}/webhooks/{endpointId}", notImplemented)
-		r.Patch("/tailnet/{tailnet}/webhooks/{endpointId}", notImplemented)
-		r.Delete("/tailnet/{tailnet}/webhooks/{endpointId}", notImplemented)
-		r.Post("/tailnet/{tailnet}/webhooks/{endpointId}/rotate", notImplemented)
-		r.Post("/tailnet/{tailnet}/webhooks/{endpointId}/test", notImplemented)
+		// Webhooks — headscale has no event bus or webhook dispatch.
+		webhooks := notImplementedReason("webhooks are a Tailscale SaaS feature; headscale has no event bus")
+		r.Get("/tailnet/{tailnet}/webhooks", webhooks)
+		r.Post("/tailnet/{tailnet}/webhooks", webhooks)
+		r.Get("/tailnet/{tailnet}/webhooks/{endpointId}", webhooks)
+		r.Patch("/tailnet/{tailnet}/webhooks/{endpointId}", webhooks)
+		r.Delete("/tailnet/{tailnet}/webhooks/{endpointId}", webhooks)
+		r.Post("/tailnet/{tailnet}/webhooks/{endpointId}/rotate", webhooks)
+		r.Post("/tailnet/{tailnet}/webhooks/{endpointId}/test", webhooks)
 
-		// Logging — all stubs.
-		r.Get("/tailnet/{tailnet}/logging/{logType}", notImplemented)
-		r.Post("/tailnet/{tailnet}/logging/{logType}", notImplemented)
-		r.Get("/tailnet/{tailnet}/logging/{logType}/stream", notImplemented)
+		// Logging — SaaS log streaming to third-party SIEM.
+		logging := notImplementedReason("log streaming is a Tailscale SaaS feature; headscale logs to stdout")
+		r.Get("/tailnet/{tailnet}/logging/{logType}", logging)
+		r.Post("/tailnet/{tailnet}/logging/{logType}", logging)
+		r.Get("/tailnet/{tailnet}/logging/{logType}/stream", logging)
 
-		// Contacts — all stubs.
-		r.Get("/tailnet/{tailnet}/contacts", notImplemented)
-		r.Patch("/tailnet/{tailnet}/contacts/{contactType}", notImplemented)
+		// Contacts — SaaS billing/security contacts.
+		contacts := notImplementedReason("contacts are a Tailscale SaaS feature; headscale has no contact management")
+		r.Get("/tailnet/{tailnet}/contacts", contacts)
+		r.Patch("/tailnet/{tailnet}/contacts/{contactType}", contacts)
 
-		// User invites — all stubs.
-		r.Get("/tailnet/{tailnet}/user-invites", notImplemented)
-		r.Post("/tailnet/{tailnet}/user-invites", notImplemented)
-		r.Get("/tailnet/{tailnet}/user-invites/{userInviteId}", notImplemented)
-		r.Delete("/tailnet/{tailnet}/user-invites/{userInviteId}", notImplemented)
-		r.Post("/tailnet/{tailnet}/user-invites/{userInviteId}/resend", notImplemented)
+		// User invites — SaaS invite flow.
+		userInvites := notImplementedReason("user invites are a Tailscale SaaS feature; headscale creates users directly")
+		r.Get("/tailnet/{tailnet}/user-invites", userInvites)
+		r.Post("/tailnet/{tailnet}/user-invites", userInvites)
+		r.Get("/tailnet/{tailnet}/user-invites/{userInviteId}", userInvites)
+		r.Delete("/tailnet/{tailnet}/user-invites/{userInviteId}", userInvites)
+		r.Post("/tailnet/{tailnet}/user-invites/{userInviteId}/resend", userInvites)
 
-		// Device posture — all stubs.
-		r.Get("/tailnet/{tailnet}/posture/integrations", notImplemented)
-		r.Post("/tailnet/{tailnet}/posture/integrations", notImplemented)
-		r.Get("/tailnet/{tailnet}/posture/integrations/{integrationId}", notImplemented)
-		r.Patch("/tailnet/{tailnet}/posture/integrations/{integrationId}", notImplemented)
-		r.Delete("/tailnet/{tailnet}/posture/integrations/{integrationId}", notImplemented)
+		// Device posture integrations — SaaS third-party integrations.
+		postureInteg := notImplementedReason("posture integrations are a Tailscale SaaS feature; headscale has no posture API")
+		r.Get("/tailnet/{tailnet}/posture/integrations", postureInteg)
+		r.Post("/tailnet/{tailnet}/posture/integrations", postureInteg)
+		r.Get("/tailnet/{tailnet}/posture/integrations/{integrationId}", postureInteg)
+		r.Patch("/tailnet/{tailnet}/posture/integrations/{integrationId}", postureInteg)
+		r.Delete("/tailnet/{tailnet}/posture/integrations/{integrationId}", postureInteg)
 
-		// Services (VIP) — all stubs.
-		r.Get("/tailnet/{tailnet}/services", notImplemented)
-		r.Put("/tailnet/{tailnet}/services/{serviceId}", notImplemented)
-		r.Delete("/tailnet/{tailnet}/services/{serviceId}", notImplemented)
+		// Services (VIP) — SaaS networking feature.
+		services := notImplementedReason("VIP services are a Tailscale SaaS feature; headscale has no equivalent")
+		r.Get("/tailnet/{tailnet}/services", services)
+		r.Put("/tailnet/{tailnet}/services/{serviceId}", services)
+		r.Delete("/tailnet/{tailnet}/services/{serviceId}", services)
 
-		// Tailnet settings — all stubs.
-		r.Get("/tailnet/{tailnet}/settings", notImplemented)
-		r.Patch("/tailnet/{tailnet}/settings", notImplemented)
+		// Tailnet settings — SaaS infrastructure.
+		settings := notImplementedReason("tailnet settings (auto-updates, billing, HTTPS) are Tailscale SaaS features")
+		r.Get("/tailnet/{tailnet}/settings", settings)
+		r.Patch("/tailnet/{tailnet}/settings", settings)
+
+		// Catch-all: any unmatched /api/v2 path returns 501 instead of 404.
+		r.NotFound(notImplementedReason("endpoint not supported by headtotails; see https://github.com/alam0rt/headtotails for API coverage"))
 	})
 
 	return r

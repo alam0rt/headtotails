@@ -19,12 +19,15 @@ It is designed to run **alongside an existing headscale server**, making headsca
 | `POST /oauth/token` (client credentials) | ✅ |
 | `GET/DELETE /api/v2/tailnet/{t}/devices` | ✅ |
 | `GET/DELETE /api/v2/device/{id}` | ✅ |
+| `POST /api/v2/device/{id}/authorized,expire,name,tags` | ✅ |
+| `GET/POST /api/v2/device/{id}/routes` | ✅ |
 | `GET/POST /api/v2/tailnet/{t}/keys` | ✅ |
 | `GET/DELETE /api/v2/tailnet/{t}/keys/{id}` | ✅ |
-| `GET/DELETE /api/v2/tailnet/{t}/users` | ✅ |
+| `GET /api/v2/tailnet/{t}/users`, `GET /api/v2/users/{id}` | ✅ |
+| `POST /api/v2/users/{id}/delete` | ✅ |
 | `GET/POST /api/v2/tailnet/{t}/acl` | ✅ |
 | `/healthz`, `/metrics` | ✅ |
-| DNS, webhooks, logging, settings, … | `501 Not Implemented` |
+| DNS, webhooks, logging, settings, posture, ... | `501` (see below) |
 
 ## Prerequisites
 
@@ -268,6 +271,34 @@ Integration tests: HEADSCALE_INTEGRATION_TEST=1 go test -v ./integration/...
 ```
 
 Integration tests spin up headscale 0.28 via Docker/Podman automatically using `dockertest`, build and start headtotails as a subprocess, and run the full API call sequence end-to-end.
+
+## API coverage
+
+headtotails implements **19 of ~69 Tailscale API v2 endpoints** -- the ones
+that have headscale gRPC backing. The remaining ~50 endpoints return
+`501 Not Implemented` with a JSON body explaining why.
+
+This is intentional. headtotails is a **translation layer**, not a
+reimplementation of the Tailscale SaaS platform. The ~50 unimplemented
+endpoints cover features that have no headscale equivalent:
+
+- **DNS management** -- headscale configures DNS via its YAML config file, not
+  a runtime API.
+- **Webhooks** -- headscale has no event bus or webhook dispatch.
+- **Log streaming** -- headscale logs to stdout; there is no SIEM integration.
+- **Device posture / integrations** -- SaaS-only compliance features.
+- **VIP services, contacts, tailnet settings** -- SaaS billing and networking
+  infrastructure.
+- **User/device invites** -- headscale creates users directly.
+
+Returning fake data for these endpoints would be worse than returning 501,
+because callers would believe they configured something when nothing changed.
+
+The 19 implemented endpoints cover the **full Tailscale Kubernetes operator
+flow** (OAuth, auth keys, device listing/deletion) and the **Terraform
+provider's core needs** (device mutations, ACL management, user management).
+
+For the full endpoint-by-endpoint breakdown, see [`gaps.md`](gaps.md).
 
 ## Architecture
 
