@@ -1,0 +1,15 @@
+# Build outputs
+headapi
+headapi-linux-amd64
+/tmp/
+
+# Kustomize secrets (never commit real credentials)
+deploy/kustomize/overlays/*/secret.env
+
+# Go test cache
+*.test
+
+# Editor
+.idea/
+.vscode/
+*.swp

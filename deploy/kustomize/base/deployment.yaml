@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headapi
+  namespace: headscale
+  labels:
+    app.kubernetes.io/name: headapi
+    app.kubernetes.io/component: api-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: headapi
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: headapi
+        app.kubernetes.io/component: api-proxy
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: headapi
+          image: ghcr.io/alam0rt/headtotail:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            # headscale gRPC endpoint — adjust to match your headscale Service name
+            - name: HEADSCALE_ADDR
+              value: "headscale:50443"
+            # Tailnet name ("-" means "use the default")
+            - name: TAILNET_NAME
+              value: "-"
+            - name: LISTEN_ADDR
+              value: ":8080"
+            # Secrets injected from the headapi-secrets Secret
+            - name: HEADSCALE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: headapi-secrets
+                  key: headscale_api_key
+            - name: OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: headapi-secrets
+                  key: oauth_client_id
+            - name: OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: headapi-secrets
+                  key: oauth_client_secret
+            - name: OAUTH_HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: headapi-secrets
+                  key: oauth_hmac_secret
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

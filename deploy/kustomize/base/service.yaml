@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: headapi
+  namespace: headscale
+  labels:
+    app.kubernetes.io/name: headapi
+    app.kubernetes.io/component: api-proxy
+spec:
+  selector:
+    app.kubernetes.io/name: headapi
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+  type: ClusterIP
