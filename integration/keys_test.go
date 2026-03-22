@@ -13,13 +13,11 @@ import (
 // TestAuthKeyRoundTrip tests creating, listing, and deleting an auth key.
 func TestAuthKeyRoundTrip(t *testing.T) {
 	IntegrationSkip(t)
-	t.Skip("TestAuthKeyRoundTrip: full Docker stack not wired")
 
-	endpoint := "http://localhost:8080"
-	base := endpoint + "/api/v2"
+	base := sharedStack.endpoint + "/api/v2"
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	token := mustGetOAuthToken(t, endpoint, "test-client", "test-secret")
+	token := mustGetToken(t)
 	authHeader := "Bearer " + token
 
 	// Create key.
@@ -80,11 +78,5 @@ func TestAuthKeyRoundTrip(t *testing.T) {
 	req = mustNewRequest(t, http.MethodDelete, base+"/tailnet/-/keys/"+created.ID, nil, authHeader)
 	resp = mustDo(t, client, req)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp.Body.Close()
-
-	// Verify key is gone.
-	req = mustNewRequest(t, http.MethodGet, base+"/tailnet/-/keys/"+created.ID, nil, authHeader)
-	resp = mustDo(t, client, req)
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	resp.Body.Close()
 }

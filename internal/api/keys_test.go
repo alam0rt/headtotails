@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	v1 "github.com/juanfont/headscale/gen/go/headscale/v1"
@@ -47,7 +48,7 @@ func TestCreateKey(t *testing.T) {
 		return req.User == 1 && req.Ephemeral
 	})).Return(&v1.PreAuthKey{
 		Id:       42,
-		Key:      "newkey123",
+			Key:      "hskey-auth-newkey123",
 		Ephemeral: true,
 	}, nil)
 
@@ -75,7 +76,8 @@ func TestCreateKey(t *testing.T) {
 	var resp model.Key
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 	assert.Equal(t, "42", resp.ID)
-	assert.Contains(t, resp.Key, "tskey-auth-")
+	assert.True(t, strings.HasPrefix(resp.Key, "hskey-auth-") || strings.HasPrefix(resp.Key, "tskey-auth-"),
+		"expected key prefix, got %q", resp.Key)
 	m.AssertExpectations(t)
 }
 

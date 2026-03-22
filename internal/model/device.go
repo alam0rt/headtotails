@@ -8,7 +8,7 @@ type Device struct {
 	Hostname                  string   `json:"hostname"`
 	ClientVersion             string   `json:"clientVersion"`
 	UpdateAvailable           bool     `json:"updateAvailable"`
-	FullyQualifiedDomainName  string   `json:"name,omitempty"` // FQDN
+	FullyQualifiedDomainName  string   `json:"fqdn,omitempty"` // FQDN TODO should be named "name"?
 	OS                        string   `json:"os"`
 	Created                   string   `json:"created"`
 	LastSeen                  string   `json:"lastSeen"`

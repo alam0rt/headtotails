@@ -14,13 +14,11 @@ import (
 // TestDeviceListAndDelete tests the device list and delete flow.
 func TestDeviceListAndDelete(t *testing.T) {
 	IntegrationSkip(t)
-	t.Skip("TestDeviceListAndDelete: full Docker stack not wired")
 
-	endpoint := "http://localhost:8080"
-	base := endpoint + "/api/v2"
+	base := sharedStack.endpoint + "/api/v2"
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	token := mustGetOAuthToken(t, endpoint, "test-client", "test-secret")
+	token := mustGetToken(t)
 	authHeader := "Bearer " + token
 
 	// List devices.
@@ -48,11 +46,17 @@ func TestDeviceListAndDelete(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var device struct {
-			ID       string `json:"id"`
-			Hostname string `json:"hostname"`
+			ID string `json:"id"`
 		}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(&device))
 		resp.Body.Close()
 		assert.Equal(t, deviceID, device.ID)
+
+		// Delete device.
+		req = mustNewRequest(t, http.MethodDelete,
+			fmt.Sprintf("%s/device/%s", base, deviceID), nil, authHeader)
+		resp = mustDo(t, client, req)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		resp.Body.Close()
 	}
 }

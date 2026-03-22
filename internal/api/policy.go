@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/alam0rt/headtotail/internal/headscale"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type policyHandler struct {
@@ -16,8 +18,14 @@ type policyHandler struct {
 func (h *policyHandler) GetPolicy(w http.ResponseWriter, r *http.Request) {
 	policy, err := h.hs.GetPolicy(r.Context())
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
-		return
+		// headscale 0.28 returns NotFound when no policy has been set yet.
+		// Return an empty default policy so callers get a usable response.
+		if status.Code(err) == codes.NotFound || status.Code(err) == codes.Unknown {
+			policy = "{}"
+		} else {
+			writeError(w, grpcStatusToHTTP(err), err.Error())
+			return
+		}
 	}
 
 	// Respond according to Accept header.

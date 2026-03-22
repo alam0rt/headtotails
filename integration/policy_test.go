@@ -13,13 +13,11 @@ import (
 // TestPolicyGetSet tests getting and setting the ACL policy.
 func TestPolicyGetSet(t *testing.T) {
 	IntegrationSkip(t)
-	t.Skip("TestPolicyGetSet: full Docker stack not wired")
 
-	endpoint := "http://localhost:8080"
-	base := endpoint + "/api/v2"
+	base := sharedStack.endpoint + "/api/v2"
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	token := mustGetOAuthToken(t, endpoint, "test-client", "test-secret")
+	token := mustGetToken(t)
 	authHeader := "Bearer " + token
 
 	// Get current policy.
@@ -34,7 +32,7 @@ func TestPolicyGetSet(t *testing.T) {
 	resp.Body.Close()
 	assert.NotEmpty(t, policy.Policy)
 
-	// Set policy back (round-trip).
+	// Round-trip: set the same policy back.
 	req = mustNewRequest(t, http.MethodPost, base+"/tailnet/-/acl", policy.Policy, authHeader)
 	resp = mustDo(t, client, req)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)

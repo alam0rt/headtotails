@@ -35,9 +35,10 @@ func PreAuthKeyToKey(k *v1.PreAuthKey) model.Key {
 
 	// The actual key value is only returned on creation by headscale,
 	// but include it in translation if present.
+	// headscale >=0.28 already returns "hskey-auth-..." so we just use
+	// it as-is without adding a second prefix.
 	if k.GetKey() != "" {
-		// Format as tskey-auth- prefix to match Tailscale conventions
-		key.Key = "tskey-auth-" + k.GetKey()
+		key.Key = k.GetKey()
 	}
 
 	return key
