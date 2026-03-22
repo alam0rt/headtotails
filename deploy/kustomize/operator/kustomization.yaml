@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# This overlay wires the Tailscale Kubernetes operator to use headscale
+# as its VPN control plane and headtotails as its management API.
+#
+# It is intended to be consumed by ops-kube alongside the headtotails
+# production overlay. Apply it after the operator is installed:
+#
+#   kubectl apply -k deploy/kustomize/overlays/production   # headtotails
+#   kubectl apply -k deploy/kustomize/operator              # operator wiring
+#
+# Before applying:
+#   1. Replace every "headscale.example.com" with your actual headscale hostname.
+#   2. Create the operator-oauth Secret in the tailscale namespace:
+#        kubectl create secret generic operator-oauth \
+#          --namespace tailscale \
+#          --from-literal=client_id=<OAUTH_CLIENT_ID> \
+#          --from-literal=client_secret=<OAUTH_CLIENT_SECRET>
+#      The client_id and client_secret must match the values in
+#      deploy/kustomize/overlays/production/secret.env.
+#   3. Ensure a dedicated headscale user exists for the operator:
+#        headscale users create tailscale-operator
+#      Set TAILNET_NAME=tailscale-operator in secret.env accordingly.
+#   4. Patch your Tailscale operator Deployment to add:
+#        env:
+#          - name: TAILSCALE_API_URL
+#            value: "https://headscale.example.com"
+#      This redirects the operator's management API calls to headtotails
+#      via the ingress paths /api/v2 and /oauth/token.
+
+resources:
+  - tailscale-namespace.yaml
+  - tailnet.yaml
+  - proxyclass.yaml
+  - ingress.yaml

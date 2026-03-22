@@ -1,6 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# This overlay deploys headtotails itself.
+# To also wire the Tailscale Kubernetes operator to use headscale + headtotails,
+# apply the operator overlay separately:
+#
+#   kubectl apply -k deploy/kustomize/operator
+#
+# See deploy/kustomize/operator/kustomization.yaml for prerequisites.
+
 resources:
   - ../../base
 

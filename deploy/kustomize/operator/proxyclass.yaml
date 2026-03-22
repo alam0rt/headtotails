@@ -1,0 +1,19 @@
+# ProxyClass — injects headscale as the login server into every proxy pod
+# (StatefulSet) spawned by the Tailscale operator. Without this, spawned
+# pods would attempt to register with controlplane.tailscale.com instead of
+# your headscale instance.
+#
+# ops-kube: set TS_EXTRA_ARGS to match your headscale public URL, e.g.:
+#   --login-server=https://headscale.example.com
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: headscale
+  namespace: tailscale
+spec:
+  statefulSet:
+    pod:
+      tailscaleContainer:
+        env:
+          - name: TS_EXTRA_ARGS
+            value: "--login-server=https://headscale.example.com"  # CHANGEME: your headscale public URL

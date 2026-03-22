@@ -28,8 +28,27 @@ It is designed to run **alongside an existing headscale server**, making headsca
 
 ## Prerequisites
 
-- headscale ≥ 0.28 with `policy.mode: database` in its config
+- **headscale ≥ 0.28** with `policy.mode: database` in its config (required for
+  ACL read/write via gRPC)
 - headscale gRPC accessible (insecure or TLS) from where headtotails runs
+
+### Why headtotails exists
+
+The Tailscale Kubernetes operator (and other Tailscale tooling) needs **two
+distinct endpoints** to function:
+
+| Plane | Tailscale SaaS | With headscale |
+|---|---|---|
+| **VPN control plane** — where `tailscaled` registers WireGuard peers | `https://controlplane.tailscale.com` | your headscale URL |
+| **Management API** — create auth keys, list devices, manage ACLs | `https://api.tailscale.com` | headtotails |
+
+headscale implements the VPN control plane but not the management REST API.
+The Tailscale team [explicitly declined](https://github.com/tailscale/tailscale/pull/11627)
+to add headscale-specific code to the operator, suggesting instead that a REST
+shim handle the translation — which is exactly what headtotails does.
+
+With an nginx Ingress fronting both services on the same hostname, the operator
+can be configured with a **single URL** for both planes:
 
 ## Configuration
 
@@ -64,6 +83,10 @@ docker run -d \
   ghcr.io/alam0rt/headtotails:latest
 ```
 
+> **Next step:** headtotails is now running and serving the Tailscale management
+> API. To complete the setup, configure the Tailscale Kubernetes operator to use
+> headtotails — see [Usage with the Tailscale Kubernetes Operator](#usage-with-the-tailscale-kubernetes-operator) below.
+
 ## Quickstart (binary)
 
 ```bash
@@ -79,28 +102,103 @@ export OAUTH_HMAC_SECRET=a-32-byte-random-secret-here!!!
 
 ## Usage with the Tailscale Kubernetes Operator
 
-Create a Kubernetes `Secret` with the OAuth credentials, then point the operator at headtotails instead of `api.tailscale.com`:
+The recommended deployment routes `/api/v2` and `/oauth/token` to headtotails
+via an nginx Ingress on the same hostname as headscale. This gives the operator
+a **single URL** for both the VPN control plane and the management API.
 
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: operator-oauth
-  namespace: tailscale
-stringData:
-  client_id: "my-operator"
-  client_secret: "my-secret"
+```
+https://headscale.example.com/            → headscale:8080   (VPN control plane)
+https://headscale.example.com/api/v2/    → headtotails:8080 (management API)
+https://headscale.example.com/oauth/token → headtotails:8080 (OAuth2 tokens)
 ```
 
-Set the operator's `--apiserver-proxy-addr` (or equivalent env var) to `http://headtotails.headscale.svc:8080`.
+### Step 1 — Deploy headtotails
 
-See [`deploy/kustomize/`](deploy/kustomize/) for a complete example.
+Create a dedicated headscale user for the operator (do **not** reuse an
+OIDC-linked user — keep operator-managed nodes isolated):
+
+```bash
+headscale users create tailscale-operator
+```
+
+Then deploy headtotails:
+
+```bash
+cp deploy/kustomize/overlays/production/secret.env.example \
+   deploy/kustomize/overlays/production/secret.env
+# Fill in secret.env, then:
+kubectl apply -k deploy/kustomize/overlays/production
+```
+
+### Step 2 — Apply the operator wiring overlay
+
+Create the `operator-oauth` Secret in the `tailscale` namespace. The
+`client_id` and `client_secret` must match `oauth_client_id` and
+`oauth_client_secret` from your `secret.env`:
+
+```bash
+kubectl create secret generic operator-oauth \
+  --namespace tailscale \
+  --from-literal=client_id=<OAUTH_CLIENT_ID> \
+  --from-literal=client_secret=<OAUTH_CLIENT_SECRET>
+```
+
+Then apply the operator overlay (after editing the `headscale.example.com`
+placeholder to your actual headscale hostname):
+
+```bash
+kubectl apply -k deploy/kustomize/operator
+```
+
+This creates:
+- A `Tailnet` CR pointing `loginUrl` at your headscale instance
+- A `ProxyClass` that injects `--login-server` into every proxy pod the
+  operator spawns
+- A headtotails-specific `Ingress` that routes `/api/v2` and `/oauth/token`
+  to headtotails on the headscale hostname (separate from the Flux-managed
+  headscale Ingress, so it does not conflict)
+
+### Step 3 — Patch the operator Deployment
+
+Add `TAILSCALE_API_URL` to the operator's Deployment so it sends management
+API calls to headtotails instead of `api.tailscale.com`:
+
+```yaml
+env:
+  - name: TAILSCALE_API_URL
+    value: "https://headscale.example.com"
+```
+
+The operator will then `POST /oauth/token` with the credentials from the
+`operator-oauth` Secret, receive an HMAC-signed bearer token from headtotails,
+and use it for all subsequent `/api/v2/…` calls.
+
+### OIDC / Keycloak interaction
+
+If your headscale is configured with an OIDC provider (e.g. Keycloak), the two
+auth flows are **completely independent**:
+
+- **Device registration (OIDC):** human runs `tailscale up` → headscale redirects
+  browser to your OIDC provider → user logs in → headscale maps identity to a
+  headscale user. headtotails is **not involved**.
+- **Operator (OAuth2 client credentials):** operator POSTs `client_credentials`
+  to headtotails `/oauth/token` → headtotails validates inline against
+  `OAUTH_CLIENT_ID`/`OAUTH_CLIENT_SECRET` → issues HMAC token. **No OIDC
+  provider involved.**
+
+See [`deploy/kustomize/operator/`](deploy/kustomize/operator/) for all manifests.
 
 ## Kubernetes deployment (Kustomize)
 
 ```bash
-# Edit deploy/kustomize/overlays/production/secret.env first
+# 1. Deploy headtotails
+cp deploy/kustomize/overlays/production/secret.env.example \
+   deploy/kustomize/overlays/production/secret.env
+# Edit secret.env, then:
 kubectl apply -k deploy/kustomize/overlays/production
+
+# 2. Wire the Tailscale operator (edit headscale.example.com placeholders first)
+kubectl apply -k deploy/kustomize/operator
 ```
 
 ## API
