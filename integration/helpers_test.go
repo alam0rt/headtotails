@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -446,107 +445,6 @@ func IntegrationSkip(t *testing.T) {
 	}
 }
 
-// mustGetToken fetches an OAuth bearer token from the shared stack.
-func mustGetToken(t *testing.T) string {
-	t.Helper()
-	s := sharedStack
-	resp, err := http.PostForm(s.endpoint+"/oauth/token", map[string][]string{
-		"grant_type":    {"client_credentials"},
-		"client_id":     {s.oauthClientID},
-		"client_secret": {s.oauthClientSecret},
-	})
-	if err != nil {
-		t.Fatalf("POST /oauth/token: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("POST /oauth/token status %d: %s", resp.StatusCode, body)
-	}
-	var tok struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&tok); err != nil {
-		t.Fatalf("decode token response: %v", err)
-	}
-	return tok.AccessToken
-}
-
-// mustGetOAuthToken fetches an OAuth bearer token from the specified endpoint.
-// Kept as a package-level function for tests that pass custom endpoints.
-func mustGetOAuthToken(t *testing.T, endpoint, clientID, clientSecret string) string {
-	t.Helper()
-	resp, err := http.PostForm(endpoint+"/oauth/token", map[string][]string{
-		"grant_type":    {"client_credentials"},
-		"client_id":     {clientID},
-		"client_secret": {clientSecret},
-	})
-	if err != nil {
-		t.Fatalf("POST %s/oauth/token: %v", endpoint, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("POST /oauth/token status %d: %s", resp.StatusCode, body)
-	}
-	var tok struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&tok); err != nil {
-		t.Fatalf("decode token response: %v", err)
-	}
-	return tok.AccessToken
-}
-
-// mustNewRequest creates an HTTP request with an optional Bearer auth header.
-func mustNewRequest(t *testing.T, method, url string, body interface{}, authHeader string) *http.Request {
-	t.Helper()
-	var bodyStr string
-	if body != nil {
-		switch s := body.(type) {
-		case string:
-			bodyStr = s
-		default:
-			b, err := json.Marshal(body)
-			if err != nil {
-				t.Fatalf("marshal request body: %v", err)
-			}
-			bodyStr = string(b)
-		}
-	}
-
-	var req *http.Request
-	var err error
-	if bodyStr != "" {
-		req, err = http.NewRequest(method, url, strings.NewReader(bodyStr))
-		req.Header.Set("Content-Type", "application/json")
-	} else {
-		req, err = http.NewRequest(method, url, nil)
-	}
-	if err != nil {
-		t.Fatalf("new request %s %s: %v", method, url, err)
-	}
-	if authHeader != "" {
-		req.Header.Set("Authorization", authHeader)
-	}
-	return req
-}
-
-// mustDo executes an HTTP request and returns the response, failing on error.
-func mustDo(t *testing.T, client *http.Client, req *http.Request) *http.Response {
-	t.Helper()
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatalf("HTTP %s %s: %v", req.Method, req.URL, err)
-	}
-	return resp
-}
-
-// formatID formats a numeric ID as a string.
-func formatID(id uint64) string {
-	return fmt.Sprintf("%d", id)
-}
-
 // headtotailsStack is the type used by mustStartStack callers (oauth_test.go).
 type headtotailsStack struct {
 	ha interface {
@@ -569,27 +467,6 @@ func mustStartStack(t *testing.T, _ *dockertest.Pool, _ string) headtotailsStack
 		ha:      sharedStack,
 		cleanup: func() {},
 	}
-}
-
-// mustRequireNoErr is a tiny helper to avoid importing testify in this file
-// when we only need a fatal-on-error check.
-func mustRequireNoErr(t *testing.T, err error, msg string) {
-	t.Helper()
-	if err != nil {
-		t.Fatalf("%s: %v", msg, err)
-	}
-}
-
-// stackEndpoint returns the base URL + /api/v2 for the shared stack.
-func stackEndpoint() (base string, client *http.Client) {
-	return sharedStack.endpoint + "/api/v2",
-		&http.Client{Timeout: 10 * time.Second}
-}
-
-// stackAuth returns a Bearer auth header for a fresh OAuth token.
-func stackAuth(t *testing.T) string {
-	t.Helper()
-	return "Bearer " + mustGetToken(t)
 }
 
 // retryCtx polls fn until it returns nil or the context is done.

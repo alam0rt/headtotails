@@ -51,7 +51,11 @@ func (ro *Router) Build() chi.Router {
 	r.Use(middleware.Recoverer)
 
 	// OAuth token endpoint — no auth required.
-	r.Post("/oauth/token", OAuthTokenHandler(ro.clientID, ro.clientSecret, ro.hmacSecret, ro.tokenStore))
+	// Registered at both paths: the legacy /oauth/token and the canonical
+	// /api/v2/oauth/token that the official tailscale client library expects.
+	oauthHandler := OAuthTokenHandler(ro.clientID, ro.clientSecret, ro.hmacSecret, ro.tokenStore)
+	r.Post("/oauth/token", oauthHandler)
+	r.Post("/api/v2/oauth/token", oauthHandler)
 
 	// Health check — no auth required.
 	r.Get("/healthz", healthzHandler)
