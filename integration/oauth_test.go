@@ -33,7 +33,7 @@ func TestOAuthTokenIssuance(t *testing.T) {
 			"client_secret": {stack.ha.GetOAuthClientSecret()},
 		})
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var tok struct {
@@ -54,7 +54,7 @@ func TestOAuthTokenIssuance(t *testing.T) {
 			"client_secret": {"wrong-secret"},
 		})
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 
@@ -64,7 +64,7 @@ func TestOAuthTokenIssuance(t *testing.T) {
 			"client_secret": {stack.ha.GetOAuthClientSecret()},
 		})
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 }

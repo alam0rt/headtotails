@@ -2,7 +2,6 @@ package integration
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -136,7 +135,9 @@ func startStack() (*integrationStack, error) {
 		}
 	}
 	if dockerHost != "" {
-		os.Setenv("DOCKER_HOST", dockerHost)
+		if err := os.Setenv("DOCKER_HOST", dockerHost); err != nil {
+			return nil, fmt.Errorf("set DOCKER_HOST: %w", err)
+		}
 	}
 
 	pool, err := dockertest.NewPool(dockerHost)
@@ -229,7 +230,9 @@ policy:
 		if err != nil {
 			return err
 		}
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			return err
+		}
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("headscale /health returned %d", resp.StatusCode)
 		}
@@ -326,11 +329,11 @@ policy:
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(headtotailsEndpoint + "/healthz") //nolint:gosec
 		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			break
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		// Check if the process already died.
 		if cmd.ProcessState != nil {
@@ -350,8 +353,8 @@ policy:
 		endpoint:          headtotailsEndpoint,
 		oauthClientID:     testClientID,
 		oauthClientSecret: testClientSecret,
-		headtotailsCmd:        cmd,
-		headtotailsLog:        logBuf,
+		headtotailsCmd:    cmd,
+		headtotailsLog:    logBuf,
 		pool:              pool,
 		container:         container,
 		headscaleAPIKey:   apiKey,
@@ -368,7 +371,9 @@ func buildHeadtotails() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	tmp.Close()
+	if err := tmp.Close(); err != nil {
+		return "", fmt.Errorf("close temp file: %w", err)
+	}
 	binaryPath := tmp.Name()
 
 	// Locate the module root (parent of the integration package).
@@ -412,15 +417,15 @@ func freePort() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer l.Close()
 	_, port, err := net.SplitHostPort(l.Addr().String())
-	return port, err
-}
-
-// dockerExec runs a command inside a container, discarding output.
-func dockerExec(containerID string, args ...string) error {
-	_, err := dockerExecOutput(containerID, args...)
-	return err
+	closeErr := l.Close()
+	if err != nil {
+		return "", err
+	}
+	if closeErr != nil {
+		return "", closeErr
+	}
+	return port, nil
 }
 
 // dockerExecOutput runs a command inside a container and returns stdout+stderr.
@@ -468,18 +473,3 @@ func mustStartStack(t *testing.T, _ *dockertest.Pool, _ string) headtotailsStack
 		cleanup: func() {},
 	}
 }
-
-// retryCtx polls fn until it returns nil or the context is done.
-func retryCtx(ctx context.Context, interval time.Duration, fn func() error) error {
-	for {
-		if err := fn(); err == nil {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(interval):
-		}
-	}
-}
-

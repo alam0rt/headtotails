@@ -25,7 +25,7 @@ generate:
 
 ## lint: Run static analysis.
 lint:
-	go vet ./...
+	golangci-lint run --timeout=5m
 
 ## docker-build: Build the Docker image.
 docker-build:

@@ -159,11 +159,11 @@ func (h *HeadapiInContainer) WaitForRunning() error {
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(healthURL) //nolint:gosec
 		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		time.Sleep(500 * time.Millisecond)
 	}

@@ -17,8 +17,7 @@ const oauthTokenTTL = time.Hour
 
 // tokenEntry stores metadata about an issued OAuth token.
 type tokenEntry struct {
-	expiry  time.Time
-	scopes  []string
+	expiry time.Time
 }
 
 // tokenStore is an in-memory store for OAuth tokens.

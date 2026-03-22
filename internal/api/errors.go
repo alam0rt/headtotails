@@ -25,11 +25,6 @@ func writeJSON(w http.ResponseWriter, statusCode int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// notImplemented returns a 501 Not Implemented JSON response.
-func notImplemented(w http.ResponseWriter, _ *http.Request) {
-	writeError(w, http.StatusNotImplemented, "not implemented by headtotails")
-}
-
 // notImplementedReason returns a handler that responds with 501 and a specific reason.
 func notImplementedReason(reason string) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
