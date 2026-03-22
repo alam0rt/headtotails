@@ -64,7 +64,7 @@ headtotails is configured entirely via environment variables:
 | `OAUTH_CLIENT_ID` | ✅ | — | OAuth client ID issued to callers |
 | `OAUTH_CLIENT_SECRET` | ✅ | — | OAuth client secret |
 | `OAUTH_HMAC_SECRET` | ✅ | — | 32-byte secret for signing bearer tokens |
-| `TAILNET_NAME` | | `-` | Tailnet identifier used in URL paths |
+| `TAILNET_NAME` | | `-` | Tailnet/user to scope key operations; set to your dedicated operator user in production |
 | `LISTEN_ADDR` | | `:8080` | HTTP listen address |
 | `TLS_CERT` | | — | Path to TLS certificate (enables HTTPS) |
 | `TLS_KEY` | | — | Path to TLS private key |
@@ -298,7 +298,7 @@ The 19 implemented endpoints cover the **full Tailscale Kubernetes operator
 flow** (OAuth, auth keys, device listing/deletion) and the **Terraform
 provider's core needs** (device mutations, ACL management, user management).
 
-For the full endpoint-by-endpoint breakdown, see [`gaps.md`](gaps.md).
+For the full endpoint-by-endpoint breakdown, see [`docs/gaps.md`](docs/gaps.md).
 
 ## Architecture
 

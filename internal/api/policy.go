@@ -23,7 +23,7 @@ func (h *policyHandler) GetPolicy(w http.ResponseWriter, r *http.Request) {
 		if status.Code(err) == codes.NotFound || status.Code(err) == codes.Unknown {
 			policy = "{}"
 		} else {
-			writeError(w, grpcStatusToHTTP(err), err.Error())
+			writeGRPCError(w, r, err)
 			return
 		}
 	}
@@ -54,7 +54,7 @@ func (h *policyHandler) SetPolicy(w http.ResponseWriter, r *http.Request) {
 	// If the content type is JSON (not HuJSON), we still pass through directly.
 	// headscale accepts HuJSON natively.
 	if err := h.hs.SetPolicy(r.Context(), policyStr); err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 

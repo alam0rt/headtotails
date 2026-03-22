@@ -39,9 +39,12 @@ spec:
             # headscale gRPC endpoint — adjust to match your headscale Service name
             - name: HEADSCALE_ADDR
               value: "headscale:50443"
-            # Tailnet name ("-" means "use the default")
+            # Tailnet name (must match the dedicated operator user)
             - name: TAILNET_NAME
-              value: "-"
+              valueFrom:
+                secretKeyRef:
+                  name: headtotails-secrets
+                  key: tailnet_name
             - name: LISTEN_ADDR
               value: ":8080"
             # Secrets injected from the headtotails-secrets Secret

@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -19,9 +21,15 @@ type keysHandler struct {
 
 // ListKeys handles GET /tailnet/{tailnet}/keys
 func (h *keysHandler) ListKeys(w http.ResponseWriter, r *http.Request) {
-	keys, err := h.hs.ListPreAuthKeys(r.Context())
+	user, err := h.resolveTailnetUser(r.Context(), chi.URLParam(r, "tailnet"))
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeResolveError(w, r, err)
+		return
+	}
+
+	keys, err := h.hs.ListPreAuthKeys(r.Context(), user.GetName())
+	if err != nil {
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -35,29 +43,22 @@ func (h *keysHandler) ListKeys(w http.ResponseWriter, r *http.Request) {
 
 // CreateKey handles POST /tailnet/{tailnet}/keys
 func (h *keysHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
+	user, err := h.resolveTailnetUser(r.Context(), chi.URLParam(r, "tailnet"))
+	if err != nil {
+		writeResolveError(w, r, err)
+		return
+	}
+
 	var req model.CreateKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	// headscale requires a user ID for key creation. We list users and pick
-	// the first one, or use the tailnet name as a username fallback.
-	users, err := h.hs.ListUsers(r.Context())
-	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
-		return
-	}
-
-	var userID uint64
-	if len(users) > 0 {
-		userID = users[0].GetId()
-	}
-
-	protoReq := translate.KeyRequestToCreatePreAuthKeyRequest(req, userID)
+	protoReq := translate.KeyRequestToCreatePreAuthKeyRequest(req, user.GetId())
 	key, err := h.hs.CreatePreAuthKey(r.Context(), protoReq)
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -69,9 +70,15 @@ func (h *keysHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 func (h *keysHandler) GetKey(w http.ResponseWriter, r *http.Request) {
 	keyID := chi.URLParam(r, "keyId")
 
-	keys, err := h.hs.ListPreAuthKeys(r.Context())
+	user, err := h.resolveTailnetUser(r.Context(), chi.URLParam(r, "tailnet"))
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeResolveError(w, r, err)
+		return
+	}
+
+	keys, err := h.hs.ListPreAuthKeys(r.Context(), user.GetName())
+	if err != nil {
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -88,9 +95,15 @@ func (h *keysHandler) GetKey(w http.ResponseWriter, r *http.Request) {
 func (h *keysHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 	keyID := chi.URLParam(r, "keyId")
 
-	keys, err := h.hs.ListPreAuthKeys(r.Context())
+	user, err := h.resolveTailnetUser(r.Context(), chi.URLParam(r, "tailnet"))
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeResolveError(w, r, err)
+		return
+	}
+
+	keys, err := h.hs.ListPreAuthKeys(r.Context(), user.GetName())
+	if err != nil {
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -102,12 +115,12 @@ func (h *keysHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 
 	// Expire then delete.
 	if err := h.hs.ExpirePreAuthKey(r.Context(), key.GetId()); err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
 	if err := h.hs.DeletePreAuthKey(r.Context(), key.GetId()); err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -121,4 +134,66 @@ func findKeyByID(keys []*v1.PreAuthKey, id string) *v1.PreAuthKey {
 		}
 	}
 	return nil
+}
+
+type keyResolveError struct {
+	status int
+	msg    string
+}
+
+func (e *keyResolveError) Error() string { return e.msg }
+
+func writeResolveError(w http.ResponseWriter, r *http.Request, err error) {
+	var e *keyResolveError
+	if errors.As(err, &e) {
+		writeError(w, e.status, e.msg)
+		return
+	}
+	writeGRPCError(w, r, err)
+}
+
+func (h *keysHandler) resolveTailnetUser(ctx context.Context, tailnet string) (*v1.User, error) {
+	users, err := h.hs.ListUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return nil, &keyResolveError{
+			status: http.StatusNotFound,
+			msg:    "no users exist in headscale",
+		}
+	}
+
+	resolved := tailnet
+	if resolved == "-" {
+		resolved = h.tailnetName
+	}
+
+	if resolved == "-" {
+		if len(users) != 1 {
+			return nil, &keyResolveError{
+				status: http.StatusBadRequest,
+				msg:    "tailnet is ambiguous; set TAILNET_NAME to a dedicated user",
+			}
+		}
+		return users[0], nil
+	}
+
+	if h.tailnetName != "-" && tailnet != "-" && tailnet != h.tailnetName {
+		return nil, &keyResolveError{
+			status: http.StatusNotFound,
+			msg:    fmt.Sprintf("tailnet %s not found", tailnet),
+		}
+	}
+
+	for _, user := range users {
+		if user.GetName() == resolved {
+			return user, nil
+		}
+	}
+
+	return nil, &keyResolveError{
+		status: http.StatusNotFound,
+		msg:    fmt.Sprintf("tailnet %s not found", tailnet),
+	}
 }

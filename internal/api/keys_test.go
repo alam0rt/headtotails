@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -22,7 +23,10 @@ import (
 
 func TestListKeys(t *testing.T) {
 	m := &headscale.MockHeadscaleClient{}
-	m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{
+	m.On("ListUsers", mock.Anything).Return([]*v1.User{
+		{Id: 1, Name: "default"},
+	}, nil)
+	m.On("ListPreAuthKeys", mock.Anything, "default").Return([]*v1.PreAuthKey{
 		{Id: 1, Key: "abc123", Reusable: false, Ephemeral: true},
 		{Id: 2, Key: "def456", Reusable: true, Ephemeral: false},
 	}, nil)
@@ -92,7 +96,10 @@ func TestGetKey(t *testing.T) {
 			name:  "found",
 			keyID: "1",
 			mockSetup: func(m *headscale.MockHeadscaleClient) {
-				m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{
+				m.On("ListUsers", mock.Anything).Return([]*v1.User{
+					{Id: 1, Name: "default"},
+				}, nil)
+				m.On("ListPreAuthKeys", mock.Anything, "default").Return([]*v1.PreAuthKey{
 					{Id: 1, Key: "k1"},
 				}, nil)
 			},
@@ -102,7 +109,10 @@ func TestGetKey(t *testing.T) {
 			name:  "not found",
 			keyID: "999",
 			mockSetup: func(m *headscale.MockHeadscaleClient) {
-				m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{
+				m.On("ListUsers", mock.Anything).Return([]*v1.User{
+					{Id: 1, Name: "default"},
+				}, nil)
+				m.On("ListPreAuthKeys", mock.Anything, "default").Return([]*v1.PreAuthKey{
 					{Id: 1, Key: "k1"},
 				}, nil)
 			},
@@ -126,7 +136,10 @@ func TestGetKey(t *testing.T) {
 
 func TestDeleteKey(t *testing.T) {
 	m := &headscale.MockHeadscaleClient{}
-	m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{
+	m.On("ListUsers", mock.Anything).Return([]*v1.User{
+		{Id: 1, Name: "default"},
+	}, nil)
+	m.On("ListPreAuthKeys", mock.Anything, "default").Return([]*v1.PreAuthKey{
 		{Id: 5, Key: "k5"},
 	}, nil)
 	m.On("ExpirePreAuthKey", mock.Anything, uint64(5)).Return(nil)
@@ -141,7 +154,10 @@ func TestDeleteKey(t *testing.T) {
 
 func TestDeleteKeyNotFound(t *testing.T) {
 	m := &headscale.MockHeadscaleClient{}
-	m.On("ListPreAuthKeys", mock.Anything).Return([]*v1.PreAuthKey{}, nil)
+	m.On("ListUsers", mock.Anything).Return([]*v1.User{
+		{Id: 1, Name: "default"},
+	}, nil)
+	m.On("ListPreAuthKeys", mock.Anything, "default").Return([]*v1.PreAuthKey{}, nil)
 
 	router, tok := setupTestRouter(m)
 	w := doRequest(router, http.MethodDelete, "/api/v2/tailnet/-/keys/999", tok)
@@ -167,11 +183,68 @@ func TestPutKeyNotImplemented(t *testing.T) {
 
 func TestListKeysGRPCError(t *testing.T) {
 	m := &headscale.MockHeadscaleClient{}
-	m.On("ListPreAuthKeys", mock.Anything).
+	m.On("ListUsers", mock.Anything).Return([]*v1.User{
+		{Id: 1, Name: "default"},
+	}, nil)
+	m.On("ListPreAuthKeys", mock.Anything, "default").
 		Return(nil, status.Error(codes.Internal, "grpc down"))
 
 	router, tok := setupTestRouter(m)
+	before := testutil.ToFloat64(grpcErrorsTotal.WithLabelValues(codes.Internal.String()))
 	w := doRequest(router, http.MethodGet, "/api/v2/tailnet/-/keys", tok)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	after := testutil.ToFloat64(grpcErrorsTotal.WithLabelValues(codes.Internal.String()))
+	assert.Equal(t, before+1, after)
 	m.AssertExpectations(t)
+}
+
+func TestKeysTailnetIsolation(t *testing.T) {
+	t.Run("rejects mismatched explicit tailnet", func(t *testing.T) {
+		m := &headscale.MockHeadscaleClient{}
+		m.On("ListUsers", mock.Anything).Return([]*v1.User{
+			{Id: 1, Name: "default"},
+		}, nil)
+
+		router, tok := setupTestRouter(m)
+		w := doRequest(router, http.MethodGet, "/api/v2/tailnet/other/keys", tok)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("fails when default tailnet is ambiguous", func(t *testing.T) {
+		m := &headscale.MockHeadscaleClient{}
+		m.On("ListUsers", mock.Anything).Return([]*v1.User{
+			{Id: 1, Name: "alice"},
+			{Id: 2, Name: "bob"},
+		}, nil)
+
+		router, tok := setupTestRouter(m)
+		w := doRequest(router, http.MethodGet, "/api/v2/tailnet/-/keys", tok)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		m.AssertExpectations(t)
+	})
+
+	t.Run("create uses requested tailnet user id", func(t *testing.T) {
+		m := &headscale.MockHeadscaleClient{}
+		m.On("ListUsers", mock.Anything).Return([]*v1.User{
+			{Id: 10, Name: "alice"},
+			{Id: 20, Name: "bob"},
+		}, nil)
+		m.On("CreatePreAuthKey", mock.Anything, mock.MatchedBy(func(req *v1.CreatePreAuthKeyRequest) bool {
+			return req.GetUser() == 20
+		})).Return(&v1.PreAuthKey{
+			Id: 100,
+		}, nil)
+
+		router, tok := setupTestRouter(m)
+		body := `{"capabilities":{"devices":{"create":{"reusable":false,"ephemeral":true,"preauthorized":true}}},"expirySeconds":3600}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v2/tailnet/bob/keys", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+tok)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		m.AssertExpectations(t)
+	})
 }

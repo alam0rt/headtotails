@@ -23,7 +23,7 @@ type HeadscaleClient interface {
 	AuthApprove(ctx context.Context, user, nodeKey string) (*v1.Node, error)
 
 	// PreAuthKeys
-	ListPreAuthKeys(ctx context.Context) ([]*v1.PreAuthKey, error)
+	ListPreAuthKeys(ctx context.Context, user string) ([]*v1.PreAuthKey, error)
 	CreatePreAuthKey(ctx context.Context, req *v1.CreatePreAuthKeyRequest) (*v1.PreAuthKey, error)
 	ExpirePreAuthKey(ctx context.Context, id uint64) error
 	DeletePreAuthKey(ctx context.Context, id uint64) error
@@ -131,12 +131,23 @@ func (c *GRPCClient) AuthApprove(ctx context.Context, user, nodeKey string) (*v1
 	return resp.Node, nil
 }
 
-func (c *GRPCClient) ListPreAuthKeys(ctx context.Context) ([]*v1.PreAuthKey, error) {
+func (c *GRPCClient) ListPreAuthKeys(ctx context.Context, user string) ([]*v1.PreAuthKey, error) {
 	resp, err := c.client.ListPreAuthKeys(c.withAPIKey(ctx), &v1.ListPreAuthKeysRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return resp.PreAuthKeys, nil
+	if user == "" {
+		return resp.PreAuthKeys, nil
+	}
+
+	filtered := make([]*v1.PreAuthKey, 0, len(resp.PreAuthKeys))
+	for _, key := range resp.PreAuthKeys {
+		if key.GetUser() != nil && key.GetUser().GetName() == user {
+			filtered = append(filtered, key)
+		}
+	}
+
+	return filtered, nil
 }
 
 func (c *GRPCClient) CreatePreAuthKey(ctx context.Context, req *v1.CreatePreAuthKeyRequest) (*v1.PreAuthKey, error) {

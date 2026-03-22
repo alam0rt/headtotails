@@ -2,9 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/alam0rt/headtotails/internal/model"
+	"github.com/go-chi/chi/v5/middleware"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -51,4 +53,20 @@ func grpcStatusToHTTP(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func writeGRPCError(w http.ResponseWriter, r *http.Request, err error) {
+	grpcCode := status.Code(err)
+	httpStatus := grpcStatusToHTTP(err)
+	observeGRPCError(grpcCode)
+
+	slog.Error("upstream headscale error",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"status", httpStatus,
+		"grpc_code", grpcCode.String(),
+		"request_id", middleware.GetReqID(r.Context()),
+		"error", err.Error(),
+	)
+	writeError(w, httpStatus, err.Error())
 }

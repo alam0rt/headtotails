@@ -20,7 +20,7 @@ type devicesHandler struct {
 func (h *devicesHandler) ListDevices(w http.ResponseWriter, r *http.Request) {
 	nodes, err := h.hs.ListNodes(r.Context(), "")
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -42,7 +42,7 @@ func (h *devicesHandler) GetDevice(w http.ResponseWriter, r *http.Request) {
 
 	node, err := h.hs.GetNode(r.Context(), id)
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -58,7 +58,7 @@ func (h *devicesHandler) DeleteDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.hs.DeleteNode(r.Context(), id); err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -82,7 +82,7 @@ func (h *devicesHandler) AuthorizeDevice(w http.ResponseWriter, r *http.Request)
 	// headscale uses RegisterNode for authorization; we use the node key.
 	node, err := h.hs.GetNode(r.Context(), id)
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *devicesHandler) AuthorizeDevice(w http.ResponseWriter, r *http.Request)
 		}
 		_, err = h.hs.AuthApprove(r.Context(), user, node.GetNodeKey())
 		if err != nil {
-			writeError(w, grpcStatusToHTTP(err), err.Error())
+			writeGRPCError(w, r, err)
 			return
 		}
 	}
@@ -110,7 +110,7 @@ func (h *devicesHandler) ExpireDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.hs.ExpireNode(r.Context(), id); err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *devicesHandler) RenameDevice(w http.ResponseWriter, r *http.Request) {
 
 	node, err := h.hs.RenameNode(r.Context(), id, req.Name)
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -156,7 +156,7 @@ func (h *devicesHandler) SetDeviceTags(w http.ResponseWriter, r *http.Request) {
 
 	node, err := h.hs.SetTags(r.Context(), id, req.Tags)
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -173,7 +173,7 @@ func (h *devicesHandler) GetDeviceRoutes(w http.ResponseWriter, r *http.Request)
 
 	node, err := h.hs.GetNode(r.Context(), id)
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -196,7 +196,7 @@ func (h *devicesHandler) SetDeviceRoutes(w http.ResponseWriter, r *http.Request)
 
 	node, err := h.hs.SetApprovedRoutes(r.Context(), id, req.Routes)
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 

@@ -19,7 +19,7 @@ type usersHandler struct {
 func (h *usersHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.hs.ListUsers(r.Context())
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -37,7 +37,7 @@ func (h *usersHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	users, err := h.hs.ListUsers(r.Context())
 	if err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 
@@ -61,7 +61,7 @@ func (h *usersHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.hs.DeleteUser(r.Context(), id); err != nil {
-		writeError(w, grpcStatusToHTTP(err), err.Error())
+		writeGRPCError(w, r, err)
 		return
 	}
 

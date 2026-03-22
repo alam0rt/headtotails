@@ -73,8 +73,8 @@ func (m *MockHeadscaleClient) AuthApprove(ctx context.Context, user, nodeKey str
 	return args.Get(0).(*v1.Node), args.Error(1)
 }
 
-func (m *MockHeadscaleClient) ListPreAuthKeys(ctx context.Context) ([]*v1.PreAuthKey, error) {
-	args := m.Called(ctx)
+func (m *MockHeadscaleClient) ListPreAuthKeys(ctx context.Context, user string) ([]*v1.PreAuthKey, error) {
+	args := m.Called(ctx, user)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

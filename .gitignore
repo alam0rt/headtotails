@@ -1,6 +1,6 @@
 # Build outputs
-headapi
-headapi-linux-amd64
+headtotails
+headtotails-linux-amd64
 /tmp/
 
 # Kustomize secrets (never commit real credentials)

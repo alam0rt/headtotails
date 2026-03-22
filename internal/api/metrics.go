@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc/codes"
 )
 
 var (
@@ -57,4 +58,8 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 		requestsTotal.WithLabelValues(r.Method, routePattern, status).Inc()
 		requestDuration.WithLabelValues(r.Method, routePattern).Observe(time.Since(start).Seconds())
 	})
+}
+
+func observeGRPCError(code codes.Code) {
+	grpcErrorsTotal.WithLabelValues(code.String()).Inc()
 }

@@ -1,5 +1,5 @@
 {
-  description = "headapi — Tailscale API v2 proxy for headscale";
+  description = "headtotails — Tailscale API v2 proxy for headscale";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -13,7 +13,7 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          name = "headapi";
+          name = "headtotails";
 
           packages = with pkgs; [
             # Go toolchain — 1.25.x is the default `go` in nixpkgs-unstable
@@ -47,7 +47,7 @@
           ];
 
           shellHook = ''
-            echo "headapi dev shell"
+            echo "headtotails dev shell"
             echo "  go      $(go version)"
             echo "  gcc     $(gcc --version | head -1)"
             echo "  make    $(make --version | head -1)"
