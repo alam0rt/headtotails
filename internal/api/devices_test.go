@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/alam0rt/headtotail/internal/headscale"
-	"github.com/alam0rt/headtotail/internal/model"
+	"github.com/alam0rt/headtotails/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/model"
 )
 
 func TestListDevices(t *testing.T) {

@@ -23,22 +23,22 @@ import (
 // Global state shared across all tests in this package
 // ---------------------------------------------------------------------------
 
-// sharedStack is the single headscale+headapi stack for the whole test binary.
+// sharedStack is the single headscale+headtotails stack for the whole test binary.
 // It is initialised in TestMain and shared read-only by all tests.
 var sharedStack *integrationStack
 
-// integrationStack holds a running headscale + headapi pair.
+// integrationStack holds a running headscale + headtotails pair.
 type integrationStack struct {
-	// headapi HTTP base URL e.g. "http://127.0.0.1:PORT"
+	// headtotails HTTP base URL e.g. "http://127.0.0.1:PORT"
 	endpoint string
-	// OAuth credentials configured in headapi
+	// OAuth credentials configured in headtotails
 	oauthClientID     string
 	oauthClientSecret string
-	// headapi subprocess — nil when the process has already exited
-	headapiCmd *exec.Cmd
-	// captured log output from headapi
-	headapiLog *bytes.Buffer
-	headapiMu  sync.Mutex
+	// headtotails subprocess — nil when the process has already exited
+	headtotailsCmd *exec.Cmd
+	// captured log output from headtotails
+	headtotailsLog *bytes.Buffer
+	headtotailsMu  sync.Mutex
 	// headscale docker container
 	pool      *dockertest.Pool
 	container *dockertest.Resource
@@ -46,7 +46,7 @@ type integrationStack struct {
 	headscaleAPIKey string
 }
 
-// GetEndpoint returns the headapi HTTP base URL.
+// GetEndpoint returns the headtotails HTTP base URL.
 func (s *integrationStack) GetEndpoint() string { return s.endpoint }
 
 // GetOAuthClientID returns the OAuth client ID.
@@ -55,12 +55,12 @@ func (s *integrationStack) GetOAuthClientID() string { return s.oauthClientID }
 // GetOAuthClientSecret returns the OAuth client secret.
 func (s *integrationStack) GetOAuthClientSecret() string { return s.oauthClientSecret }
 
-// Shutdown stops headapi and removes the headscale container.
+// Shutdown stops headtotails and removes the headscale container.
 func (s *integrationStack) Shutdown() error {
 	var errs []string
-	if s.headapiCmd != nil && s.headapiCmd.Process != nil {
-		_ = s.headapiCmd.Process.Kill()
-		_ = s.headapiCmd.Wait()
+	if s.headtotailsCmd != nil && s.headtotailsCmd.Process != nil {
+		_ = s.headtotailsCmd.Process.Kill()
+		_ = s.headtotailsCmd.Wait()
 	}
 	if s.pool != nil && s.container != nil {
 		if err := s.pool.Purge(s.container); err != nil {
@@ -73,11 +73,11 @@ func (s *integrationStack) Shutdown() error {
 	return nil
 }
 
-// Logs returns the captured headapi log output (safe to call from multiple goroutines).
+// Logs returns the captured headtotails log output (safe to call from multiple goroutines).
 func (s *integrationStack) Logs() string {
-	s.headapiMu.Lock()
-	defer s.headapiMu.Unlock()
-	return s.headapiLog.String()
+	s.headtotailsMu.Lock()
+	defer s.headtotailsMu.Unlock()
+	return s.headtotailsLog.String()
 }
 
 // ---------------------------------------------------------------------------
@@ -85,9 +85,9 @@ func (s *integrationStack) Logs() string {
 // ---------------------------------------------------------------------------
 
 const (
-	testClientID     = "headapi-test-client"
-	testClientSecret = "headapi-test-secret"
-	testHMACSecret   = "headapi-hmac-secret-32-chars!!" // exactly 30 chars
+	testClientID     = "headtotails-test-client"
+	testClientSecret = "headtotails-test-secret"
+	testHMACSecret   = "headtotails-hmac-secret-32-chars!!" // exactly 30 chars
 	testTailnetName  = "-"
 
 	// headscale Docker image — must match the proto definitions (v0.28)
@@ -110,8 +110,8 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	// Always print headapi logs so CI has something to look at.
-	fmt.Fprintf(os.Stderr, "\n=== headapi logs ===\n%s\n===================\n",
+	// Always print headtotails logs so CI has something to look at.
+	fmt.Fprintf(os.Stderr, "\n=== headtotails logs ===\n%s\n===================\n",
 		stack.Logs())
 
 	if err := stack.Shutdown(); err != nil {
@@ -121,7 +121,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// startStack brings up headscale in Docker/Podman then headapi as a local subprocess.
+// startStack brings up headscale in Docker/Podman then headtotails as a local subprocess.
 func startStack() (*integrationStack, error) {
 	// Prefer an explicit DOCKER_HOST; fall back to the Podman user socket.
 	dockerHost := os.Getenv("DOCKER_HOST")
@@ -170,8 +170,8 @@ derp:
   server:
     enabled: true
     region_id: 999
-    region_code: headapi-test
-    region_name: headapi test
+    region_code: headtotails-test
+    region_name: headtotails test
     stun_listen_addr: 0.0.0.0:3478
     private_key_path: /var/lib/headscale/derp_private.key
   urls: []
@@ -185,7 +185,7 @@ database:
     path: /var/lib/headscale/db.sqlite
 dns:
   magic_dns: false
-  base_domain: headapi.test
+  base_domain: headtotails.test
   override_local_dns: false
   nameservers:
     global: []
@@ -270,8 +270,8 @@ policy:
 	}
 	userIDStr := fmt.Sprintf("%d", users[0].ID)
 
-	// Create a preauthkey so headapi's CreatePreAuthKey has a user to bind to.
-	_ = userIDStr // used below if needed; headapi calls ListUsers on its own
+	// Create a preauthkey so headtotails's CreatePreAuthKey has a user to bind to.
+	_ = userIDStr // used below if needed; headtotails calls ListUsers on its own
 
 	apiKeyOut, err := dockerExecOutput(containerID, "headscale", "apikeys", "create", "--expiration", "24h")
 	if err != nil {
@@ -282,19 +282,19 @@ policy:
 	fmt.Printf("[stack] headscale API key: %s\n", apiKey)
 
 	// -----------------------------------------------------------------------
-	// 4. Build headapi binary
+	// 4. Build headtotails binary
 	// -----------------------------------------------------------------------
-	binaryPath, err := buildHeadapi()
+	binaryPath, err := buildHeadtotails()
 	if err != nil {
 		_ = pool.Purge(container)
-		return nil, fmt.Errorf("build headapi: %w", err)
+		return nil, fmt.Errorf("build headtotails: %w", err)
 	}
-	fmt.Printf("[stack] headapi binary: %s\n", binaryPath)
+	fmt.Printf("[stack] headtotails binary: %s\n", binaryPath)
 
 	// -----------------------------------------------------------------------
-	// 5. Start headapi subprocess on a free port
+	// 5. Start headtotails subprocess on a free port
 	// -----------------------------------------------------------------------
-	headapiPort, err := freePort()
+	headtotailsPort, err := freePort()
 	if err != nil {
 		_ = pool.Purge(container)
 		return nil, fmt.Errorf("find free port: %w", err)
@@ -303,7 +303,7 @@ policy:
 	logBuf := &bytes.Buffer{}
 	cmd := exec.Command(binaryPath)
 	cmd.Env = append(os.Environ(),
-		"LISTEN_ADDR=:"+headapiPort,
+		"LISTEN_ADDR=:"+headtotailsPort,
 		"HEADSCALE_ADDR=127.0.0.1:"+grpcPort,
 		"HEADSCALE_API_KEY="+apiKey,
 		"TAILNET_NAME="+testTailnetName,
@@ -316,16 +316,16 @@ policy:
 
 	if err := cmd.Start(); err != nil {
 		_ = pool.Purge(container)
-		return nil, fmt.Errorf("start headapi: %w", err)
+		return nil, fmt.Errorf("start headtotails: %w", err)
 	}
-	fmt.Printf("[stack] headapi PID=%d listening on :%s\n", cmd.Process.Pid, headapiPort)
+	fmt.Printf("[stack] headtotails PID=%d listening on :%s\n", cmd.Process.Pid, headtotailsPort)
 
-	headapiEndpoint := "http://127.0.0.1:" + headapiPort
+	headtotailsEndpoint := "http://127.0.0.1:" + headtotailsPort
 
-	// Wait for headapi to be healthy.
+	// Wait for headtotails to be healthy.
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
-		resp, err := http.Get(headapiEndpoint + "/healthz") //nolint:gosec
+		resp, err := http.Get(headtotailsEndpoint + "/healthz") //nolint:gosec
 		if err == nil && resp.StatusCode == http.StatusOK {
 			resp.Body.Close()
 			break
@@ -336,23 +336,23 @@ policy:
 		// Check if the process already died.
 		if cmd.ProcessState != nil {
 			_ = pool.Purge(container)
-			return nil, fmt.Errorf("headapi exited prematurely: %s", logBuf.String())
+			return nil, fmt.Errorf("headtotails exited prematurely: %s", logBuf.String())
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
 	if time.Now().After(deadline) {
 		_ = cmd.Process.Kill()
 		_ = pool.Purge(container)
-		return nil, fmt.Errorf("headapi did not become healthy: %s", logBuf.String())
+		return nil, fmt.Errorf("headtotails did not become healthy: %s", logBuf.String())
 	}
-	fmt.Println("[stack] headapi is healthy")
+	fmt.Println("[stack] headtotails is healthy")
 
 	return &integrationStack{
-		endpoint:          headapiEndpoint,
+		endpoint:          headtotailsEndpoint,
 		oauthClientID:     testClientID,
 		oauthClientSecret: testClientSecret,
-		headapiCmd:        cmd,
-		headapiLog:        logBuf,
+		headtotailsCmd:        cmd,
+		headtotailsLog:        logBuf,
 		pool:              pool,
 		container:         container,
 		headscaleAPIKey:   apiKey,
@@ -363,9 +363,9 @@ policy:
 // Helpers used by TestMain
 // ---------------------------------------------------------------------------
 
-// buildHeadapi compiles the headapi binary and returns its path.
-func buildHeadapi() (string, error) {
-	tmp, err := os.CreateTemp("", "headapi-integration-*")
+// buildHeadtotails compiles the headtotails binary and returns its path.
+func buildHeadtotails() (string, error) {
+	tmp, err := os.CreateTemp("", "headtotails-integration-*")
 	if err != nil {
 		return "", err
 	}
@@ -378,7 +378,7 @@ func buildHeadapi() (string, error) {
 		return "", err
 	}
 
-	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/headapi")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/headtotails")
 	cmd.Dir = moduleRoot
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	out, err := cmd.CombinedOutput()
@@ -547,8 +547,8 @@ func formatID(id uint64) string {
 	return fmt.Sprintf("%d", id)
 }
 
-// headapiStack is the type used by mustStartStack callers (oauth_test.go).
-type headapiStack struct {
+// headtotailsStack is the type used by mustStartStack callers (oauth_test.go).
+type headtotailsStack struct {
 	ha interface {
 		GetEndpoint() string
 		GetOAuthClientID() string
@@ -559,13 +559,13 @@ type headapiStack struct {
 }
 
 // mustStartStack returns the global shared stack (already started in TestMain).
-func mustStartStack(t *testing.T, _ *dockertest.Pool, _ string) headapiStack {
+func mustStartStack(t *testing.T, _ *dockertest.Pool, _ string) headtotailsStack {
 	t.Helper()
 	IntegrationSkip(t)
 	if sharedStack == nil {
 		t.Fatal("sharedStack is nil — TestMain did not start the stack")
 	}
-	return headapiStack{
+	return headtotailsStack{
 		ha:      sharedStack,
 		cleanup: func() {},
 	}

@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alam0rt/headtotail/internal/api"
-	"github.com/alam0rt/headtotail/internal/config"
-	"github.com/alam0rt/headtotail/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/api"
+	"github.com/alam0rt/headtotails/internal/config"
+	"github.com/alam0rt/headtotails/internal/headscale"
 )
 
 func main() {
@@ -69,7 +69,7 @@ func main() {
 
 	// Start server in a goroutine.
 	go func() {
-		slog.Info("headapi starting", "addr", cfg.ListenAddr)
+		slog.Info("headtotails starting", "addr", cfg.ListenAddr)
 		var err error
 		if srv.TLSConfig != nil {
 			err = srv.ListenAndServeTLS("", "")
@@ -87,7 +87,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	<-quit
 
-	slog.Info("shutting down headapi")
+	slog.Info("shutting down headtotails")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -96,5 +96,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("headapi stopped")
+	slog.Info("headtotails stopped")
 }

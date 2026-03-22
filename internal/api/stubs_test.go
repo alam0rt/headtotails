@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/alam0rt/headtotail/internal/headscale"
-	"github.com/alam0rt/headtotail/internal/model"
+	"github.com/alam0rt/headtotails/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/model"
 )
 
 // TestStubEndpoints verifies that all stub (501) endpoints return the correct
@@ -68,7 +68,7 @@ func TestStubEndpoints(t *testing.T) {
 				"expected 501 for %s %s", s.method, s.path)
 			var errResp model.Error
 			require.NoError(t, json.NewDecoder(w.Body).Decode(&errResp))
-			assert.Equal(t, "not implemented by headapi", errResp.Message)
+			assert.Equal(t, "not implemented by headtotails", errResp.Message)
 		})
 	}
 }

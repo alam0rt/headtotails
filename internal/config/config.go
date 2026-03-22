@@ -4,7 +4,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-// Config holds all runtime configuration for headapi.
+// Config holds all runtime configuration for headtotails.
 type Config struct {
 	ListenAddr        string `envconfig:"LISTEN_ADDR" default:":8080"`
 	HeadscaleAddr     string `envconfig:"HEADSCALE_ADDR" required:"true"`

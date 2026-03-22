@@ -1,4 +1,4 @@
-module github.com/alam0rt/headtotail
+module github.com/alam0rt/headtotails
 
 go 1.25.5
 

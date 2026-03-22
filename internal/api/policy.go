@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/alam0rt/headtotail/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/headscale"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

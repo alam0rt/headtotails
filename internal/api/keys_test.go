@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/alam0rt/headtotail/internal/headscale"
-	"github.com/alam0rt/headtotail/internal/model"
+	"github.com/alam0rt/headtotails/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/model"
 )
 
 func TestListKeys(t *testing.T) {
@@ -162,7 +162,7 @@ func TestPutKeyNotImplemented(t *testing.T) {
 	assert.Equal(t, http.StatusNotImplemented, w.Code)
 	var errResp model.Error
 	require.NoError(t, json.NewDecoder(w.Body).Decode(&errResp))
-	assert.Equal(t, "not implemented by headapi", errResp.Message)
+	assert.Equal(t, "not implemented by headtotails", errResp.Message)
 }
 
 func TestListKeysGRPCError(t *testing.T) {

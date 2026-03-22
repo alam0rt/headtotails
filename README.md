@@ -1,13 +1,13 @@
-# headapi
+# headtotails
 
-**headapi** is a lightweight Go service that exposes the [Tailscale REST API v2](https://tailscale.com/api) as a thin translation layer over the [headscale](https://github.com/juanfont/headscale) gRPC API.
+**headtotails** is a lightweight Go service that exposes the [Tailscale REST API v2](https://tailscale.com/api) as a thin translation layer over the [headscale](https://github.com/juanfont/headscale) gRPC API.
 
 It is designed to run **alongside an existing headscale server**, making headscale compatible with tooling that targets the Tailscale control-plane API — primarily the [Tailscale Kubernetes operator](https://github.com/tailscale/tailscale-kubernetes-operator), the Tailscale Terraform provider, and any other client that speaks `api.tailscale.com/api/v2/…`.
 
 ```
 ┌──────────────────────────────┐        ┌──────────────┐        ┌─────────────┐
 │  Tailscale k8s operator /    │  REST  │              │  gRPC  │             │
-│  Terraform provider / etc.   │───────▶│   headapi    │───────▶│  headscale  │
+│  Terraform provider / etc.   │───────▶│   headtotails    │───────▶│  headscale  │
 └──────────────────────────────┘        │  :8080       │        │  :50443     │
                                         └──────────────┘        └─────────────┘
 ```
@@ -29,11 +29,11 @@ It is designed to run **alongside an existing headscale server**, making headsca
 ## Prerequisites
 
 - headscale ≥ 0.28 with `policy.mode: database` in its config
-- headscale gRPC accessible (insecure or TLS) from where headapi runs
+- headscale gRPC accessible (insecure or TLS) from where headtotails runs
 
 ## Configuration
 
-headapi is configured entirely via environment variables:
+headtotails is configured entirely via environment variables:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
@@ -53,7 +53,7 @@ headapi is configured entirely via environment variables:
 # 1. Create a headscale API key
 HEADSCALE_API_KEY=$(headscale apikeys create --expiration 8760h)
 
-# 2. Run headapi
+# 2. Run headtotails
 docker run -d \
   -e HEADSCALE_ADDR=headscale:50443 \
   -e HEADSCALE_API_KEY="$HEADSCALE_API_KEY" \
@@ -61,7 +61,7 @@ docker run -d \
   -e OAUTH_CLIENT_SECRET=my-secret \
   -e OAUTH_HMAC_SECRET=a-32-byte-random-secret-here!!! \
   -p 8080:8080 \
-  ghcr.io/alam0rt/headtotail:latest
+  ghcr.io/alam0rt/headtotails:latest
 ```
 
 ## Quickstart (binary)
@@ -73,13 +73,13 @@ export OAUTH_CLIENT_ID=my-operator
 export OAUTH_CLIENT_SECRET=my-secret
 export OAUTH_HMAC_SECRET=a-32-byte-random-secret-here!!!
 
-./headapi
-# {"time":"...","level":"INFO","msg":"headapi starting","addr":":8080"}
+./headtotails
+# {"time":"...","level":"INFO","msg":"headtotails starting","addr":":8080"}
 ```
 
 ## Usage with the Tailscale Kubernetes Operator
 
-Create a Kubernetes `Secret` with the OAuth credentials, then point the operator at headapi instead of `api.tailscale.com`:
+Create a Kubernetes `Secret` with the OAuth credentials, then point the operator at headtotails instead of `api.tailscale.com`:
 
 ```yaml
 apiVersion: v1
@@ -92,7 +92,7 @@ stringData:
   client_secret: "my-secret"
 ```
 
-Set the operator's `--apiserver-proxy-addr` (or equivalent env var) to `http://headapi.headscale.svc:8080`.
+Set the operator's `--apiserver-proxy-addr` (or equivalent env var) to `http://headtotails.headscale.svc:8080`.
 
 See [`deploy/kustomize/`](deploy/kustomize/) for a complete example.
 
@@ -169,12 +169,12 @@ Unit tests:        go test ./internal/...           (no Docker required)
 Integration tests: HEADSCALE_INTEGRATION_TEST=1 go test -v ./integration/...
 ```
 
-Integration tests spin up headscale 0.28 via Docker/Podman automatically using `dockertest`, build and start headapi as a subprocess, and run the full API call sequence end-to-end.
+Integration tests spin up headscale 0.28 via Docker/Podman automatically using `dockertest`, build and start headtotails as a subprocess, and run the full API call sequence end-to-end.
 
 ## Architecture
 
 ```
-cmd/headapi/main.go          binary entry-point, graceful shutdown
+cmd/headtotails/main.go          binary entry-point, graceful shutdown
 internal/
   config/                    env-var config (envconfig)
   headscale/client.go        HeadscaleClient interface + gRPC implementation

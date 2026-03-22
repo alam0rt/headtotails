@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: headapi
+  name: headtotails
   namespace: headscale
   labels:
-    app.kubernetes.io/name: headapi
+    app.kubernetes.io/name: headtotails
     app.kubernetes.io/component: api-proxy
 spec:
   selector:
-    app.kubernetes.io/name: headapi
+    app.kubernetes.io/name: headtotails
   ports:
     - name: http
       port: 8080

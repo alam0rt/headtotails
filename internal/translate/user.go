@@ -5,7 +5,7 @@ import (
 	"time"
 
 	v1 "github.com/juanfont/headscale/gen/go/headscale/v1"
-	"github.com/alam0rt/headtotail/internal/model"
+	"github.com/alam0rt/headtotails/internal/model"
 )
 
 // UserToTailscaleUser converts a headscale proto User to a Tailscale API User.

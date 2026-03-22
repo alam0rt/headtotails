@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"time"
 
-	"github.com/alam0rt/headtotail/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/headscale"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/alam0rt/headtotail/internal/model"
+	"github.com/alam0rt/headtotails/internal/model"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,7 +25,7 @@ func writeJSON(w http.ResponseWriter, statusCode int, v any) {
 
 // notImplemented returns a 501 Not Implemented JSON response.
 func notImplemented(w http.ResponseWriter, _ *http.Request) {
-	writeError(w, http.StatusNotImplemented, "not implemented by headapi")
+	writeError(w, http.StatusNotImplemented, "not implemented by headtotails")
 }
 
 // grpcStatusToHTTP maps gRPC status codes to HTTP status codes.

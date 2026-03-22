@@ -7,13 +7,13 @@ resources:
 # Pin the image digest for production reproducibility.
 # Update this tag on each release.
 images:
-  - name: ghcr.io/alam0rt/headtotail
+  - name: ghcr.io/alam0rt/headtotails
     newTag: latest
 
 # Generate the Secret from a local env file.
 # Create secret.env by copying secret.env.example and filling in real values.
 secretGenerator:
-  - name: headapi-secrets
+  - name: headtotails-secrets
     envs:
       - secret.env
     options:
@@ -27,4 +27,4 @@ patches:
         value: 2
     target:
       kind: Deployment
-      name: headapi
+      name: headtotails

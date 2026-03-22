@@ -1,8 +1,8 @@
-# headapi — Implementation Plan
+# headtotails — Implementation Plan
 
 ## Overview
 
-`headapi` is a standalone Go service that implements the Tailscale REST API v2
+`headtotails` is a standalone Go service that implements the Tailscale REST API v2
 (`api.tailscale.com/api/v2/…`) as a thin proxy/translation layer over the
 headscale gRPC API. Its goal is to make headscale compatible with Tailscale
 ecosystem tooling — primarily the Tailscale Kubernetes operator, the Tailscale
@@ -11,7 +11,7 @@ API — without modifying headscale itself.
 
 ```
 ┌────────────────────────────┐        ┌─────────────────────────┐
-│  Tailscale k8s operator /  │  REST  │         headapi          │  gRPC  │  headscale  │
+│  Tailscale k8s operator /  │  REST  │         headtotails          │  gRPC  │  headscale  │
 │  Terraform provider / etc. │ ──────▶│  (this project)         │ ──────▶│             │
 └────────────────────────────┘        └─────────────────────────┘        └─────────────┘
 ```
@@ -37,9 +37,9 @@ API — without modifying headscale itself.
 ## Repository Layout
 
 ```
-headapi/
+headtotails/
 ├── cmd/
-│   └── headapi/
+│   └── headtotails/
 │       └── main.go                 # binary entry point, flag parsing, wiring
 ├── internal/
 │   ├── api/                        # HTTP handler layer (one file per tag group)
@@ -108,9 +108,9 @@ headapi/
 **Goal:** `go build ./...` and `go test ./...` both pass from a clean clone.
 
 ### Tasks
-1. `go mod init github.com/yourorg/headapi` with Go 1.22+.
+1. `go mod init github.com/yourorg/headtotails` with Go 1.22+.
 2. Add `chi`, `grpc`, headscale proto Go module, `testify`, `envconfig`, `mockery` to `go.mod`.
-3. Write `cmd/headapi/main.go` — reads config, creates gRPC client, creates chi router, starts HTTP server.
+3. Write `cmd/headtotails/main.go` — reads config, creates gRPC client, creates chi router, starts HTTP server.
 4. Write `internal/config/config.go`:
    ```go
    type Config struct {
@@ -146,8 +146,8 @@ POST /oauth/token          (NOT under /api/v2 — matches tailscale.com path)
 
 ### Design
 - Accept `client_id` + `client_secret` as either HTTP Basic Auth or form body.
-- `client_id` and `client_secret` are configured statically in headapi config
-  (operators create them; headapi validates them against config or a simple DB table).
+- `client_id` and `client_secret` are configured statically in headtotails config
+  (operators create them; headtotails validates them against config or a simple DB table).
 - On success, issue an opaque token: `HMAC-SHA256(secret, random_nonce + expiry)`,
   stored in `sync.Map[token → {scopes, expiry}]`.
 - Response matches Tailscale's `{"access_token":"…","token_type":"Bearer","expires_in":3600}`.
@@ -258,7 +258,7 @@ Key field mappings:
 - `PreAuthKey.AclTags` → `Key.Capabilities.Devices.Create.Tags`
 
 ### Note on `{keyId}` — headscale doesn't support lookup by ID
-`ListPreAuthKeys` returns all keys for a user. headapi must iterate and match.
+`ListPreAuthKeys` returns all keys for a user. headtotails must iterate and match.
 The `{tailnet}` path param is used as the headscale username for pre-auth key
 scoping (or resolved via config).
 
@@ -298,7 +298,7 @@ func UserToTailscaleUser(u *headscalev1.User) model.User { … }
 
 The Tailscale API supports both JSON and HuJSON policy formats (negotiated via
 `Content-Type` and `Accept` headers). headscale's `SetPolicy` accepts HuJSON.
-headapi should pass the body through verbatim when `Content-Type: application/hujson`,
+headtotails should pass the body through verbatim when `Content-Type: application/hujson`,
 and re-serialize when `Content-Type: application/json`.
 
 ---
@@ -322,7 +322,7 @@ make the upgrade path clear — replace `NotImplemented()` with a real gRPC call
 ## Phase 7 — Stub Endpoints (Day 5–6)
 
 The following groups have **no headscale gRPC equivalent** and will return `501`
-with a JSON body `{"message":"not implemented by headapi"}`:
+with a JSON body `{"message":"not implemented by headtotails"}`:
 
 - **Webhooks** — `GET/POST/PATCH/DELETE /tailnet/{tailnet}/webhooks`, etc.
 - **Logging** — all `/tailnet/{tailnet}/logging/…` endpoints.
@@ -361,7 +361,7 @@ We adopt **the same framework and the same skip mechanism** directly. This means
 3. They can run locally the same way headscale's do: `go test -v -timeout 30m
    -run TestXxx ./integration/` with `HEADSCALE_INTEGRATION_TEST=1`.
 
-### `haic` — headapi In Container
+### `haic` — headtotails In Container
 
 Mirroring `hsic`, we add a small `integration/haic/haic.go` package:
 
@@ -369,7 +369,7 @@ Mirroring `hsic`, we add a small `integration/haic/haic.go` package:
 // integration/haic/haic.go
 package haic
 
-// HeadapiInContainer runs the headapi binary in a Docker container
+// HeadapiInContainer runs the headtotails binary in a Docker container
 // on the same network as a HeadscaleInContainer.
 type HeadapiInContainer struct {
     hostname  string
@@ -389,7 +389,7 @@ type Option func(*HeadapiInContainer)
 func WithOAuthCredentials(id, secret string) Option { … }
 func WithTailnetName(name string) Option { … }
 
-// New builds headapi from source (or uses a pre-built image) and starts it.
+// New builds headtotails from source (or uses a pre-built image) and starts it.
 func New(pool *dockertest.Pool, networks []*dockertest.Network,
     headscale ControlServer, opts ...Option) (*HeadapiInContainer, error) { … }
 
@@ -403,11 +403,11 @@ The Dockerfile for haic is a two-stage build:
 FROM golang:1.22-alpine AS builder
 WORKDIR /src
 COPY . .
-RUN go build -o /headapi ./cmd/headapi
+RUN go build -o /headtotails ./cmd/headtotails
 
 FROM alpine:3.19
-COPY --from=builder /headapi /usr/local/bin/headapi
-ENTRYPOINT ["/usr/local/bin/headapi"]
+COPY --from=builder /headtotails /usr/local/bin/headtotails
+ENTRYPOINT ["/usr/local/bin/headtotails"]
 ```
 
 ### Integration test file structure
@@ -434,7 +434,7 @@ func TestOAuthTokenIssuance(t *testing.T) {
 
     pool, err := dockertest.NewPool("")
     require.NoError(t, err)
-    network, err := dockertestutil.GetFirstOrCreateNetwork(pool, "headapi-test-oauth")
+    network, err := dockertestutil.GetFirstOrCreateNetwork(pool, "headtotails-test-oauth")
     require.NoError(t, err)
 
     // Start headscale
@@ -444,12 +444,12 @@ func TestOAuthTokenIssuance(t *testing.T) {
     defer hs.Shutdown()
     require.NoError(t, hs.WaitForRunning())
 
-    // Create headscale API key for headapi to use
+    // Create headscale API key for headtotails to use
     apiKey, err := hs.Execute([]string{"headscale", "apikeys", "create",
         "--expiration", "24h"})
     require.NoError(t, err)
 
-    // Start headapi, pointed at headscale
+    // Start headtotails, pointed at headscale
     ha, err := haic.New(pool, []*dockertest.Network{network}, hs,
         haic.WithOAuthCredentials("test-client", "test-secret"),
         haic.WithHeadscaleAPIKey(strings.TrimSpace(apiKey)))
@@ -502,7 +502,7 @@ This is the centrepiece — it replays the exact sequence the k8s operator perfo
 func TestOperatorCallSequence(t *testing.T) {
     IntegrationSkip(t)
 
-    // ... setup pool, network, headscale, headapi as above ...
+    // ... setup pool, network, headscale, headtotails as above ...
 
     // Create a user in headscale (the operator needs one to scope keys to)
     _, err = hs.CreateUser("k8s-operator")
@@ -580,20 +580,20 @@ and the GitHub Actions workflow) — no extra tooling (`act`, `kind`, etc.) need
 
 ## Phase 9 — Hardening & Production Readiness (Day 7–8)
 
-1. **TLS** — headapi can terminate TLS itself (cert/key from config) or run behind a reverse proxy.
+1. **TLS** — headtotails can terminate TLS itself (cert/key from config) or run behind a reverse proxy.
 2. **Metrics** — expose `GET /metrics` (Prometheus) with request duration histograms per endpoint.
 3. **Health** — `GET /healthz` → `{"status":"ok"}`.
 4. **Graceful shutdown** — `http.Server.Shutdown` on `SIGTERM`.
 5. **Token expiry cleanup** — background goroutine purges expired OAuth tokens from `sync.Map`.
 6. **Dockerfile** — multi-stage, distroless final image, non-root user.
-7. **Helm chart skeleton** — `charts/headapi/` for deployment alongside headscale.
+7. **Helm chart skeleton** — `charts/headtotails/` for deployment alongside headscale.
 
 ---
 
 ## `{tailnet}` Parameter Handling
 
 The Tailscale API uses a `{tailnet}` path parameter (e.g., `example.com` or `-`
-for the default tailnet). headscale is a single-tailnet server, so headapi maps
+for the default tailnet). headscale is a single-tailnet server, so headtotails maps
 this to a configurable `TAILNET_NAME` env var. The parameter is validated but
 otherwise treated as the "owner namespace" for pre-auth key scoping.
 
@@ -657,7 +657,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 func notImplemented(w http.ResponseWriter, r *http.Request) {
-    writeError(w, http.StatusNotImplemented, "not implemented by headapi")
+    writeError(w, http.StatusNotImplemented, "not implemented by headtotails")
 }
 ```
 
@@ -798,7 +798,7 @@ HEADSCALE_INTEGRATION_TEST=1 go test -v -timeout 30m \
 
 The integration suite (Phase 8) uses exactly the same `ory/dockertest`-based
 framework as headscale's own integration tests — `hsic` for the headscale
-container, plus our new `haic` for headapi itself. If this suite is green we have
+container, plus our new `haic` for headtotails itself. If this suite is green we have
 high mechanical confidence.
 
 ---
@@ -834,7 +834,7 @@ HEADSCALE_INTEGRATION_TEST=1 go test -v -run TestOperatorCallSequence \
 
 This uses `tsic` (`TailscaleInContainer`) — the same Docker-based real
 `tailscaled` client that headscale's own suite uses — to verify that a client
-can register through headscale via a pre-auth key created through headapi.
+can register through headscale via a pre-auth key created through headtotails.
 
 This test lives in `integration/e2e_test.go`:
 
@@ -842,13 +842,13 @@ This test lives in `integration/e2e_test.go`:
 func TestClientRegistrationViaHeadapi(t *testing.T) {
     IntegrationSkip(t)
 
-    // Start headscale + headapi
+    // Start headscale + headtotails
     hs, ha := mustStartStack(t, "e2e")
 
-    // Step 1: get OAuth token from headapi
+    // Step 1: get OAuth token from headtotails
     token := mustGetOAuthToken(t, ha.GetEndpoint(), "test-client", "test-secret")
 
-    // Step 2: create a pre-auth key via headapi
+    // Step 2: create a pre-auth key via headtotails
     key := mustCreateAuthKey(t, ha.GetEndpoint(), token, "-")
     assert.Contains(t, key.Key, "tskey-auth-")
 
@@ -863,12 +863,12 @@ func TestClientRegistrationViaHeadapi(t *testing.T) {
     require.NoError(t, tsNode.Login(hs.GetEndpoint(), key.Key))
     require.NoError(t, tsNode.WaitForRunning(60*time.Second))
 
-    // Step 4: verify node appears in headapi device list
+    // Step 4: verify node appears in headtotails device list
     devices := mustListDevices(t, ha.GetEndpoint(), token, "-")
     assert.Len(t, devices, 1)
     assert.Equal(t, tsNode.Hostname(), devices[0].Hostname)
 
-    // Step 5: delete via headapi, verify gone from headscale
+    // Step 5: delete via headtotails, verify gone from headscale
     mustDeleteDevice(t, ha.GetEndpoint(), token, devices[0].ID)
     nodes, err := hs.ListNodes()
     require.NoError(t, err)
@@ -877,11 +877,11 @@ func TestClientRegistrationViaHeadapi(t *testing.T) {
 ```
 
 **Pass criteria for Level 3:**
-- [ ] Pre-auth key created through headapi is accepted by headscale
+- [ ] Pre-auth key created through headtotails is accepted by headscale
 - [ ] Real `tailscaled` client successfully registers using that key
 - [ ] Registered node appears in `GET /tailnet/-/devices` response
 - [ ] Deleting the device via `DELETE /device/{id}` removes it from headscale
-- [ ] No auth errors in headapi logs throughout
+- [ ] No auth errors in headtotails logs throughout
 
 Run locally:
 ```bash
@@ -896,7 +896,7 @@ just Docker, the same way headscale tests itself.
 
 ### Observability During Verification
 
-To debug failures during any level of testing, headapi exposes:
+To debug failures during any level of testing, headtotails exposes:
 
 - **`GET /healthz`** — liveness check, should return `200 {"status":"ok"}`
 - **`GET /metrics`** — Prometheus metrics including:
@@ -907,7 +907,7 @@ To debug failures during any level of testing, headapi exposes:
   `status`, `duration_ms`, and `error` (if any)
 
 A failed Level 3 test with no obvious error in the operator logs should be
-debugged by inspecting headapi's metrics/logs to find which API call failed and why.
+debugged by inspecting headtotails's metrics/logs to find which API call failed and why.
 
 ---
 
@@ -923,7 +923,7 @@ Specifically:
 
 This ensures:
 
-1. No headapi change silently breaks the operator call sequence.
+1. No headtotails change silently breaks the operator call sequence.
 2. New headscale gRPC API changes are caught when the headscale module is updated.
 3. The OpenAPI spec remains the source of truth — schema validation in
    `TestOperatorCallSequence` catches any drift between the spec and our responses.
@@ -935,7 +935,7 @@ This ensures:
 - **Multi-tailnet:** headscale is single-tailnet; if multi-tailnet support is added
   upstream the translation layer would need to map `{tailnet}` to headscale users/namespaces.
 - **OAuth scopes:** Tailscale's OAuth uses fine-grained scopes (`devices:read`, `auth_keys:write`, etc.).
-  headapi should parse and validate scopes even if headscale doesn't enforce them,
+  headtotails should parse and validate scopes even if headscale doesn't enforce them,
   so that clients behave correctly.
 - **Pagination:** Tailscale API documents no pagination today; if headscale grows
   very large node counts this may need server-side filtering/pagination.

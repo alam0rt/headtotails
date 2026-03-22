@@ -13,7 +13,7 @@ import (
 )
 
 // TestOAuthTokenIssuance tests the OAuth 2.0 client credentials flow end-to-end
-// against a real headapi instance.
+// against a real headtotails instance.
 func TestOAuthTokenIssuance(t *testing.T) {
 	IntegrationSkip(t)
 

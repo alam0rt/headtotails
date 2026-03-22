@@ -1,4 +1,4 @@
-// Package haic provides HeadapiInContainer, which runs the headapi binary in a
+// Package haic provides HeadapiInContainer, which runs the headtotails binary in a
 // Docker container on the same network as a headscale container.
 // It mirrors the hsic (HeadscaleInContainer) pattern from headscale's own
 // integration test suite.
@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	headapiImage = "headapi"
-	headapiPort  = "8080/tcp"
+	headtotailsImage = "headtotails"
+	headtotailsPort  = "8080/tcp"
 )
 
 // ControlServer is the interface that HeadscaleInContainer implements.
@@ -25,7 +25,7 @@ type ControlServer interface {
 	GetEndpoint() string
 }
 
-// HeadapiInContainer runs the headapi binary in a Docker container.
+// HeadapiInContainer runs the headtotails binary in a Docker container.
 type HeadapiInContainer struct {
 	pool      *dockertest.Pool
 	container *dockertest.Resource
@@ -51,7 +51,7 @@ func WithOAuthCredentials(id, secret string) Option {
 	}
 }
 
-// WithHeadscaleAPIKey sets the headscale API key headapi will use.
+// WithHeadscaleAPIKey sets the headscale API key headtotails will use.
 func WithHeadscaleAPIKey(key string) Option {
 	return func(h *HeadapiInContainer) {
 		h.headscaleAPIKey = key
@@ -72,7 +72,7 @@ func WithHMACSecret(secret string) Option {
 	}
 }
 
-// New builds headapi from source using a two-stage Docker build and starts it
+// New builds headtotails from source using a two-stage Docker build and starts it
 // on the given Docker network, pointing at the provided headscale instance.
 func New(
 	pool *dockertest.Pool,
@@ -83,9 +83,9 @@ func New(
 	h := &HeadapiInContainer{
 		pool:              pool,
 		networks:          networks,
-		oauthClientID:     "headapi-client",
-		oauthClientSecret: "headapi-secret",
-		hmacSecret:        "headapi-hmac-secret-32-chars!!!",
+		oauthClientID:     "headtotails-client",
+		oauthClientSecret: "headtotails-secret",
+		hmacSecret:        "headtotails-hmac-secret-32-chars!!!",
 		tailnetName:       "-",
 		// headscale gRPC is typically on port 50443 internally.
 		headscaleAddr: headscale.GetHostname() + ":50443",
@@ -97,14 +97,14 @@ func New(
 
 	// Build the Docker image from the workspace root.
 	buildOpts := docker.BuildImageOptions{
-		Name:           headapiImage,
+		Name:           headtotailsImage,
 		ContextDir:     "../../", // relative to integration/haic — adjust as needed
 		Dockerfile:     "Dockerfile",
 		SuppressOutput: true,
 		Pull:           false,
 	}
 	if err := pool.Client.BuildImage(buildOpts); err != nil {
-		return nil, fmt.Errorf("build headapi image: %w", err)
+		return nil, fmt.Errorf("build headtotails image: %w", err)
 	}
 
 	networkIDs := make([]string, len(networks))
@@ -123,7 +123,7 @@ func New(
 	}
 
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: headapiImage,
+		Repository: headtotailsImage,
 		Tag:        "latest",
 		Env:        env,
 		NetworkID:  networkIDs[0],
@@ -132,16 +132,16 @@ func New(
 		hc.RestartPolicy = docker.RestartPolicy{Name: "no"}
 	})
 	if err != nil {
-		return nil, fmt.Errorf("start headapi container: %w", err)
+		return nil, fmt.Errorf("start headtotails container: %w", err)
 	}
 
 	h.container = container
-	h.listenPort = container.GetPort(headapiPort)
+	h.listenPort = container.GetPort(headtotailsPort)
 
 	return h, nil
 }
 
-// GetEndpoint returns the HTTP endpoint for the headapi container (from the host).
+// GetEndpoint returns the HTTP endpoint for the headtotails container (from the host).
 func (h *HeadapiInContainer) GetEndpoint() string {
 	return fmt.Sprintf("http://localhost:%s", h.listenPort)
 }
@@ -152,7 +152,7 @@ func (h *HeadapiInContainer) GetOAuthClientID() string { return h.oauthClientID 
 // GetOAuthClientSecret returns the configured OAuth client secret.
 func (h *HeadapiInContainer) GetOAuthClientSecret() string { return h.oauthClientSecret }
 
-// WaitForRunning polls /healthz until headapi is up or timeout expires.
+// WaitForRunning polls /healthz until headtotails is up or timeout expires.
 func (h *HeadapiInContainer) WaitForRunning() error {
 	healthURL := h.GetEndpoint() + "/healthz"
 	deadline := time.Now().Add(60 * time.Second)
@@ -167,10 +167,10 @@ func (h *HeadapiInContainer) WaitForRunning() error {
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-	return fmt.Errorf("headapi did not become healthy within timeout")
+	return fmt.Errorf("headtotails did not become healthy within timeout")
 }
 
-// Shutdown stops and removes the headapi container.
+// Shutdown stops and removes the headtotails container.
 func (h *HeadapiInContainer) Shutdown() error {
 	if h.container != nil {
 		return h.pool.Purge(h.container)

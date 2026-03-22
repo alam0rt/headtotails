@@ -13,18 +13,18 @@ import (
 
 var (
 	requestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "headapi_requests_total",
-		Help: "Total number of HTTP requests handled by headapi.",
+		Name: "headtotails_requests_total",
+		Help: "Total number of HTTP requests handled by headtotails.",
 	}, []string{"method", "path", "status"})
 
 	requestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "headapi_request_duration_seconds",
-		Help:    "Duration of HTTP requests handled by headapi.",
+		Name:    "headtotails_request_duration_seconds",
+		Help:    "Duration of HTTP requests handled by headtotails.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"method", "path"})
 
 	grpcErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "headapi_grpc_errors_total",
+		Name: "headtotails_grpc_errors_total",
 		Help: "Total number of gRPC errors returned by headscale.",
 	}, []string{"grpc_code"})
 )

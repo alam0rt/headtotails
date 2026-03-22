@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/alam0rt/headtotail/internal/headscale"
-	"github.com/alam0rt/headtotail/internal/model"
-	"github.com/alam0rt/headtotail/internal/translate"
+	"github.com/alam0rt/headtotails/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/model"
+	"github.com/alam0rt/headtotails/internal/translate"
 )
 
 type devicesHandler struct {

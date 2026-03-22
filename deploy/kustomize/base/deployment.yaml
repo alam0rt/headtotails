@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: headapi
+  name: headtotails
   namespace: headscale
   labels:
-    app.kubernetes.io/name: headapi
+    app.kubernetes.io/name: headtotails
     app.kubernetes.io/component: api-proxy
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: headapi
+      app.kubernetes.io/name: headtotails
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: headapi
+        app.kubernetes.io/name: headtotails
         app.kubernetes.io/component: api-proxy
       annotations:
         prometheus.io/scrape: "true"
@@ -28,8 +28,8 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: headapi
-          image: ghcr.io/alam0rt/headtotail:latest
+        - name: headtotails
+          image: ghcr.io/alam0rt/headtotails:latest
           imagePullPolicy: Always
           ports:
             - name: http
@@ -44,26 +44,26 @@ spec:
               value: "-"
             - name: LISTEN_ADDR
               value: ":8080"
-            # Secrets injected from the headapi-secrets Secret
+            # Secrets injected from the headtotails-secrets Secret
             - name: HEADSCALE_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: headapi-secrets
+                  name: headtotails-secrets
                   key: headscale_api_key
             - name: OAUTH_CLIENT_ID
               valueFrom:
                 secretKeyRef:
-                  name: headapi-secrets
+                  name: headtotails-secrets
                   key: oauth_client_id
             - name: OAUTH_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: headapi-secrets
+                  name: headtotails-secrets
                   key: oauth_client_secret
             - name: OAUTH_HMAC_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: headapi-secrets
+                  name: headtotails-secrets
                   key: oauth_hmac_secret
           livenessProbe:
             httpGet:

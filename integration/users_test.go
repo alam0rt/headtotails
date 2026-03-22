@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUserList tests listing users via headapi.
+// TestUserList tests listing users via headtotails.
 func TestUserList(t *testing.T) {
 	IntegrationSkip(t)
 

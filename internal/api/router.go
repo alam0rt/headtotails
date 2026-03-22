@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/alam0rt/headtotail/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/headscale"
 )
 
 // Router holds all dependencies needed to build the chi router.

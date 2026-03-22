@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alam0rt/headtotail/internal/model"
+	"github.com/alam0rt/headtotails/internal/model"
 	v1 "github.com/juanfont/headscale/gen/go/headscale/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
