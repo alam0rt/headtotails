@@ -2,12 +2,13 @@
 
 # Use CGO_ENABLED=0 for portability; the race detector requires gcc.
 BUILD_FLAGS ?= CGO_ENABLED=0 GOFLAGS="-mod=mod"
+BUILD_VERSION ?= dev
 BINARY      := headtotails
 IMAGE := headtotails:latest
 
 ## build: Compile the headtotails binary.
 build:
-	$(BUILD_FLAGS) go build -ldflags="-s -w" -o $(BINARY) ./cmd/headtotails
+	$(BUILD_FLAGS) go build -ldflags="-s -w -X main.version=$(BUILD_VERSION)" -o $(BINARY) ./cmd/headtotails
 
 ## test: Run all unit tests.
 test:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,7 +17,34 @@ import (
 	"github.com/alam0rt/headtotails/internal/headscale"
 )
 
+var version = "dev"
+
+const targetTailscaleAPIVersion = "0.28.0"
+
+func printVersion() {
+	fmt.Printf("headtotails version: %s\n", version)
+	fmt.Printf("target tailscale api: %s\n", targetTailscaleAPIVersion)
+}
+
+func shouldPrintVersion(args []string) bool {
+	if len(args) < 2 {
+		return false
+	}
+
+	switch args[1] {
+	case "--version", "version":
+		return true
+	default:
+		return false
+	}
+}
+
 func main() {
+	if shouldPrintVersion(os.Args) {
+		printVersion()
+		return
+	}
+
 	// Structured JSON logging.
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,

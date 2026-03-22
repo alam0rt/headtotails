@@ -103,6 +103,21 @@ export OAUTH_HMAC_SECRET=a-32-byte-random-secret-here!!!
 # {"time":"...","level":"INFO","msg":"headtotails starting","addr":":8080"}
 ```
 
+### Version output
+
+```bash
+./headtotails --version
+# headtotails version: dev
+# target tailscale api: 0.28.0
+
+./headtotails version
+# headtotails version: dev
+# target tailscale api: 0.28.0
+```
+
+Release builds inject the binary version at build time and always report the
+targeted Tailscale API version (`0.28.0`).
+
 ## Usage with the Tailscale Kubernetes Operator
 
 The recommended deployment routes `/api/v2` and `/oauth/token` to headtotails
