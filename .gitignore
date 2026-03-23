@@ -3,6 +3,9 @@ headtotails
 headtotails-linux-amd64
 /tmp/
 
+# KinD
+.kind/
+
 # Kustomize secrets (never commit real credentials)
 deploy/kustomize/overlays/*/secret.env
 

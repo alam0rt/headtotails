@@ -40,6 +40,10 @@
 
             # Docker (for integration tests)
             docker-client
+            podman
+            kind
+            kubectl
+            kubernetes-helm
 
             # Useful extras
             jq
