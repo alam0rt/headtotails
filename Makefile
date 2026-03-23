@@ -1,4 +1,4 @@
-.PHONY: build test generate lint docker-build integration-test clean install-hooks
+.PHONY: build test generate lint docker-build integration-test clean install-hooks kind-up kind-down kind-deploy kind-smoke-test kind-e2e kind-local-up kind-local-down kind-local-status
 
 # Use CGO_ENABLED=0 for portability; the race detector requires gcc.
 BUILD_FLAGS ?= CGO_ENABLED=0 GOFLAGS="-mod=mod"
@@ -47,3 +47,37 @@ install-hooks:
 	mkdir -p .git/hooks
 	cp scripts/pre-commit .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
+
+## kind-up: Create local Kind cluster for operator testing (uses flake dev shell).
+kind-up:
+	nix develop -c scripts/kind-up.sh
+
+## kind-down: Delete local Kind cluster used for operator testing.
+kind-down:
+	nix develop -c scripts/kind-down.sh
+
+## kind-deploy: Deploy headscale + headtotails + operator into Kind.
+kind-deploy:
+	nix develop -c scripts/kind-deploy-stack.sh
+
+## kind-smoke-test: Run smoke tests against the local Kind stack.
+kind-smoke-test:
+	nix develop -c scripts/kind-smoke-test.sh
+
+## kind-e2e: Full local flow (up, deploy, smoke test).
+kind-e2e:
+	nix develop -c scripts/kind-up.sh
+	nix develop -c scripts/kind-deploy-stack.sh
+	nix develop -c scripts/kind-smoke-test.sh
+
+## kind-local-up: Bring stack up and expose localhost control-router URL.
+kind-local-up:
+	nix develop -c scripts/kind-local-up.sh
+
+## kind-local-down: Stop localhost control-router port-forward.
+kind-local-down:
+	nix develop -c scripts/kind-local-down.sh
+
+## kind-local-status: Show localhost endpoint and port-forward status.
+kind-local-status:
+	nix develop -c scripts/kind-local-status.sh

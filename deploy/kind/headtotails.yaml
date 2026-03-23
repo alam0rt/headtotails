@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headtotails
+  namespace: headscale
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: headtotails
+  template:
+    metadata:
+      labels:
+        app: headtotails
+    spec:
+      containers:
+        - name: headtotails
+          image: localhost/headtotails:kind
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HEADSCALE_ADDR
+              value: headscale.headscale.svc.cluster.local:50443
+            - name: LISTEN_ADDR
+              value: :8080
+            - name: TAILNET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: headtotails-secrets
+                  key: tailnet_name
+            - name: HEADSCALE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: headtotails-secrets
+                  key: headscale_api_key
+            - name: OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: headtotails-secrets
+                  key: oauth_client_id
+            - name: OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: headtotails-secrets
+                  key: oauth_client_secret
+            - name: OAUTH_HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: headtotails-secrets
+                  key: oauth_hmac_secret
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headtotails
+  namespace: headscale
+spec:
+  selector:
+    app: headtotails
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
