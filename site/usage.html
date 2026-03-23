@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>headtotails Usage</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="container">
+        <a href="./index.html">headtotails</a>
+        <a href="./usage.html">Usage</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./kubernetes.html">Kubernetes</a>
+      </div>
+    </nav>
+
+    <main class="container">
+      <h1>Usage</h1>
+
+      <h2>Docker quickstart</h2>
+      <pre><code>HEADSCALE_API_KEY=$(headscale apikeys create --expiration 8760h)
+
+docker run -d \
+  -e HEADSCALE_ADDR=headscale:50443 \
+  -e HEADSCALE_API_KEY="$HEADSCALE_API_KEY" \
+  -e OAUTH_CLIENT_ID=my-operator \
+  -e OAUTH_CLIENT_SECRET=my-secret \
+  -e OAUTH_HMAC_SECRET=a-32-byte-random-secret-here!!! \
+  -p 8080:8080 \
+  ghcr.io/alam0rt/headtotails:latest</code></pre>
+
+      <h2>Binary quickstart</h2>
+      <pre><code>export HEADSCALE_ADDR=127.0.0.1:50443
+export HEADSCALE_API_KEY=hskey-api-...
+export OAUTH_CLIENT_ID=my-operator
+export OAUTH_CLIENT_SECRET=my-secret
+export OAUTH_HMAC_SECRET=a-32-byte-random-secret-here!!!
+
+./headtotails</code></pre>
+
+      <h2>Basic API checks</h2>
+      <pre><code># Get token
+curl -s -X POST http://localhost:8080/oauth/token \
+  -d 'grant_type=client_credentials&amp;client_id=my-operator&amp;client_secret=my-secret'
+
+# List devices
+curl -s -H "Authorization: Bearer &lt;token&gt;" \
+  http://localhost:8080/api/v2/tailnet/-/devices</code></pre>
+
+      <div class="footer">
+        <p>
+          Edit this page:
+          <a href="https://github.com/alam0rt/headtotails/edit/main/site/usage.html">site/usage.html</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

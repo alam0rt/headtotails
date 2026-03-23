@@ -1,5 +1,7 @@
 # headtotails
 
+[![Docs](https://img.shields.io/badge/docs-github%20pages-blue)](https://alam0rt.github.io/headtotails/)
+
 **headtotails** is a lightweight Go service that exposes the [Tailscale REST API v2](https://tailscale.com/api) as a thin translation layer over the [headscale](https://github.com/juanfont/headscale) gRPC API.
 
 It is designed to run **alongside an existing headscale server**, making headscale compatible with tooling that targets the Tailscale control-plane API — primarily the [Tailscale Kubernetes operator](https://github.com/tailscale/tailscale-kubernetes-operator), the Tailscale Terraform provider, and any other client that speaks `api.tailscale.com/api/v2/…`.

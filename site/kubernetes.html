@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>headtotails Kubernetes</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="container">
+        <a href="./index.html">headtotails</a>
+        <a href="./usage.html">Usage</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./kubernetes.html">Kubernetes</a>
+      </div>
+    </nav>
+
+    <main class="container">
+      <h1>Kubernetes deployment</h1>
+      <p>
+        The recommended routing model is one shared host with Gateway API path routing:
+      </p>
+      <ul>
+        <li><code>/api/v2</code> and <code>/oauth/token</code> → headtotails</li>
+        <li><code>/</code> → headscale</li>
+      </ul>
+
+      <h2>Apply headtotails</h2>
+      <pre><code>kubectl apply -k deploy/kustomize/overlays/production</code></pre>
+
+      <h2>Create operator oauth secret</h2>
+      <pre><code>kubectl create secret generic operator-oauth \
+  --namespace tailscale \
+  --from-literal=client_id=&lt;OAUTH_CLIENT_ID&gt; \
+  --from-literal=client_secret=&lt;OAUTH_CLIENT_SECRET&gt;</code></pre>
+
+      <h2>Apply operator wiring overlay</h2>
+      <pre><code>kubectl kustomize deploy/kustomize/operator
+kubectl apply -k deploy/kustomize/operator</code></pre>
+
+      <h2>Operator install example (Helm)</h2>
+      <pre><code>helm upgrade --install tailscale-operator tailscale/tailscale-operator \
+  --namespace tailscale --create-namespace \
+  --set-string loginServer="https://headscale.example.com" \
+  --set-string oauth.clientId="&lt;OAUTH_CLIENT_ID&gt;" \
+  --set-string oauth.clientSecret="&lt;OAUTH_CLIENT_SECRET&gt;"</code></pre>
+
+      <p>
+        Detailed guide: <a href="https://github.com/alam0rt/headtotails/blob/main/docs/gateway-api-deployment.md">docs/gateway-api-deployment.md</a>
+      </p>
+
+      <div class="footer">
+        <p>
+          Edit this page:
+          <a href="https://github.com/alam0rt/headtotails/edit/main/site/kubernetes.html">site/kubernetes.html</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

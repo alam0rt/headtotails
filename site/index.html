@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>headtotails Docs</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="container">
+        <a href="./index.html">headtotails</a>
+        <a href="./usage.html">Usage</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./kubernetes.html">Kubernetes</a>
+      </div>
+    </nav>
+
+    <main class="container">
+      <h1>headtotails documentation</h1>
+      <p class="muted">
+        headtotails is a lightweight translation layer that exposes Tailscale API v2
+        semantics on top of Headscale gRPC.
+      </p>
+
+      <div class="card">
+        <h2>What this enables</h2>
+        <ul>
+          <li>Run tools expecting <code>api.tailscale.com/api/v2</code> against self-hosted Headscale.</li>
+          <li>Use Tailscale Kubernetes operator patterns with Headscale + headtotails routing.</li>
+          <li>Keep Headscale as control plane while exposing a compatible management API surface.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Start here</h2>
+        <ul>
+          <li><a href="./usage.html">Usage guide</a> for quick local and binary starts.</li>
+          <li><a href="./configuration.html">Configuration reference</a> for all environment variables.</li>
+          <li><a href="./kubernetes.html">Kubernetes guide</a> for Gateway API based deployment.</li>
+        </ul>
+      </div>
+
+      <p>
+        Repository: <a href="https://github.com/alam0rt/headtotails">github.com/alam0rt/headtotails</a>
+      </p>
+
+      <div class="footer">
+        <p>
+          Edit this page:
+          <a href="https://github.com/alam0rt/headtotails/edit/main/site/index.html">site/index.html</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>headtotails Configuration</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="container">
+        <a href="./index.html">headtotails</a>
+        <a href="./usage.html">Usage</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./kubernetes.html">Kubernetes</a>
+      </div>
+    </nav>
+
+    <main class="container">
+      <h1>Configuration</h1>
+      <p>headtotails is configured through environment variables.</p>
+
+      <div class="card">
+        <h2>Required</h2>
+        <ul>
+          <li><code>HEADSCALE_ADDR</code>: Headscale gRPC address (example: <code>headscale:50443</code>)</li>
+          <li><code>HEADSCALE_API_KEY</code>: Headscale API key</li>
+          <li><code>OAUTH_CLIENT_ID</code>: OAuth client id for callers</li>
+          <li><code>OAUTH_CLIENT_SECRET</code>: OAuth client secret for callers</li>
+          <li><code>OAUTH_HMAC_SECRET</code>: secret for signing bearer tokens</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Common optional</h2>
+        <ul>
+          <li><code>TAILNET_NAME</code> (default <code>-</code>): user scope for key operations</li>
+          <li><code>LISTEN_ADDR</code> (default <code>:8080</code>): bind address</li>
+          <li><code>TLS_CERT</code>, <code>TLS_KEY</code>: enable HTTPS listener</li>
+          <li><code>LOG_LEVEL</code> (default <code>info</code>)</li>
+          <li><code>ENVIRONMENT</code> (default <code>production</code>)</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Replica note</h2>
+        <p>
+          Current OAuth bearer token validation is in-memory by default. For reliable operation, run
+          a single replica or ensure sticky routing for token issuance and subsequent API calls.
+        </p>
+      </div>
+
+      <div class="footer">
+        <p>
+          Edit this page:
+          <a href="https://github.com/alam0rt/headtotails/edit/main/site/configuration.html">site/configuration.html</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
