@@ -24,18 +24,18 @@ func RenderMetricsMarkdown() string {
 		if len(metric.Labels) > 0 {
 			labels = strings.Join(metric.Labels, ", ")
 		}
-		b.WriteString(fmt.Sprintf("| `%s` | `%s` | `%s` | %s |\n",
+		_, _ = fmt.Fprintf(&b, "| `%s` | `%s` | `%s` | %s |\n",
 			metric.Name,
 			metric.Type,
 			labels,
 			metric.Help,
-		))
+		)
 	}
 	b.WriteString("\n")
 
 	b.WriteString("## Metric Notes\n\n")
 	for _, metric := range CustomMetricDocs() {
-		b.WriteString(fmt.Sprintf("- `%s`: %s\n", metric.Name, metric.Notes))
+		_, _ = fmt.Fprintf(&b, "- `%s`: %s\n", metric.Name, metric.Notes)
 	}
 	b.WriteString("\n")
 
