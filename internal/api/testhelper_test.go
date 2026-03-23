@@ -1,6 +1,8 @@
 package api
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -15,6 +17,12 @@ const (
 	testHeadscaleKey = "test-headscale-api-key"
 	testTailnet      = "-"
 )
+
+func init() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	})))
+}
 
 // setupTestRouter creates a chi router with the given HeadscaleClient mock,
 // using a pre-seeded token store so tests can use testBearerToken directly.

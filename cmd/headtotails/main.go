@@ -15,6 +15,7 @@ import (
 	"github.com/alam0rt/headtotails/internal/api"
 	"github.com/alam0rt/headtotails/internal/config"
 	"github.com/alam0rt/headtotails/internal/headscale"
+	"github.com/alam0rt/headtotails/internal/logging"
 )
 
 var version = "dev"
@@ -45,14 +46,30 @@ func main() {
 		return
 	}
 
-	// Structured JSON logging.
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	})))
+	// Bootstrap logging before config loads so early failures are structured.
+	if err := logging.Setup(logging.Options{
+		Level:   "info",
+		Service: "headtotails",
+		Version: version,
+		Env:     "production",
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
+	}
+	if err := logging.Setup(logging.Options{
+		Level:     cfg.LogLevel,
+		AddSource: cfg.LogAddSource,
+		Service:   "headtotails",
+		Version:   version,
+		Env:       cfg.Environment,
+	}); err != nil {
+		slog.Error("failed to configure logger", "error", err)
 		os.Exit(1)
 	}
 

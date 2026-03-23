@@ -68,6 +68,9 @@ headtotails is configured entirely via environment variables:
 | `LISTEN_ADDR` | | `:8080` | HTTP listen address |
 | `TLS_CERT` | | — | Path to TLS certificate (enables HTTPS) |
 | `TLS_KEY` | | — | Path to TLS private key |
+| `LOG_LEVEL` | | `info` | Minimum log level (`debug`, `info`, `warn`, `error`) |
+| `LOG_ADD_SOURCE` | | `false` | Include source file/line in logs |
+| `ENVIRONMENT` | | `production` | Environment label emitted with each log event |
 
 ### Scaling / replicas
 

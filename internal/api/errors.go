@@ -55,10 +55,16 @@ func writeGRPCError(w http.ResponseWriter, r *http.Request, err error) {
 	httpStatus := grpcStatusToHTTP(err)
 	observeGRPCError(grpcCode)
 
-	slog.Error("upstream headscale error",
+	logFn := slog.Error
+	if httpStatus < http.StatusInternalServerError {
+		logFn = slog.Warn
+	}
+
+	logFn("upstream headscale error",
+		"upstream", "headscale",
 		"method", r.Method,
-		"path", r.URL.Path,
-		"status", httpStatus,
+		"route", requestRoute(r),
+		"http_status", httpStatus,
 		"grpc_code", grpcCode.String(),
 		"request_id", middleware.GetReqID(r.Context()),
 		"error", err.Error(),

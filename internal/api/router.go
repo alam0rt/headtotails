@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alam0rt/headtotails/internal/headscale"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/alam0rt/headtotails/internal/headscale"
 )
 
 // Router holds all dependencies needed to build the chi router.
@@ -198,11 +198,20 @@ func slogMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
+
+		status := ww.Status()
+		if status == 0 {
+			status = http.StatusOK
+		}
+
 		slog.Info("request",
 			"method", r.Method,
-			"path", r.URL.Path,
-			"status", ww.Status(),
+			"route", requestRoute(r),
+			"http_status", status,
 			"duration_ms", time.Since(start).Milliseconds(),
+			"bytes_written", ww.BytesWritten(),
+			"remote_ip", requestRemoteIP(r),
+			"user_agent", r.UserAgent(),
 			"request_id", middleware.GetReqID(r.Context()),
 		)
 	})

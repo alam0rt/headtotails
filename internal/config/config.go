@@ -15,6 +15,9 @@ type Config struct {
 	OAuthClientSecret string `envconfig:"OAUTH_CLIENT_SECRET" required:"true"`
 	TLSCert           string `envconfig:"TLS_CERT"`
 	TLSKey            string `envconfig:"TLS_KEY"`
+	LogLevel          string `envconfig:"LOG_LEVEL" default:"info"`
+	LogAddSource      bool   `envconfig:"LOG_ADD_SOURCE" default:"false"`
+	Environment       string `envconfig:"ENVIRONMENT" default:"production"`
 }
 
 // Load reads config from environment variables.
