@@ -41,6 +41,13 @@ func TestRedactAttr(t *testing.T) {
 	}
 }
 
+func TestParseLevelAliases(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, slog.LevelError, parseLevel("err"))
+	assert.Equal(t, slog.LevelError, parseLevel("fatal"))
+}
+
 func TestNewLoggerProducesJSONAndServiceAttrs(t *testing.T) {
 	t.Parallel()
 
@@ -64,4 +71,23 @@ func TestNewLoggerProducesJSONAndServiceAttrs(t *testing.T) {
 	assert.Equal(t, "test", line["env"])
 	assert.Equal(t, "rid-123", line["request_id"])
 	assert.Equal(t, redactedValue, line["authorization"])
+}
+
+func TestSetupInstallsDefaultLogger(t *testing.T) {
+	old := slog.Default()
+	defer slog.SetDefault(old)
+
+	var buf bytes.Buffer
+	err := Setup(Options{
+		Level:   "info",
+		Service: "headtotails",
+		Output:  &buf,
+	})
+	require.NoError(t, err)
+
+	slog.Info("setup-check", "token", "secret")
+	var line map[string]any
+	require.NoError(t, json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &line))
+	assert.Equal(t, "setup-check", line["msg"])
+	assert.Equal(t, redactedValue, line["token"])
 }
