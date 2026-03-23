@@ -13,3 +13,6 @@ deploy/kustomize/overlays/*/secret.env
 .idea/
 .vscode/
 *.swp
+
+# Local Kind artifacts
+.kind/

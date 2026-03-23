@@ -50,7 +50,7 @@ The Tailscale team [explicitly declined](https://github.com/tailscale/tailscale/
 to add headscale-specific code to the operator, suggesting instead that a REST
 shim handle the translation — which is exactly what headtotails does.
 
-With an nginx Ingress fronting both services on the same hostname, the operator
+With Gateway API routing both services on the same hostname, the operator
 can be configured with a **single URL** for both planes:
 
 ## Configuration
@@ -139,7 +139,7 @@ targeted Tailscale API version (`0.28.0`).
 ## Usage with the Tailscale Kubernetes Operator
 
 The recommended deployment routes `/api/v2` and `/oauth/token` to headtotails
-via an nginx Ingress on the same hostname as headscale. This gives the operator
+via a Gateway API `HTTPRoute` on the same hostname as headscale. This gives the operator
 a **single URL** for both the VPN control plane and the management API.
 
 ```
@@ -179,8 +179,8 @@ kubectl create secret generic operator-oauth \
   --from-literal=client_secret=<OAUTH_CLIENT_SECRET>
 ```
 
-Then apply the operator overlay (after editing the `headscale.example.com`
-placeholder to your actual headscale hostname):
+Then apply the operator overlay (after editing placeholders in
+`deploy/kustomize/operator/*.yaml`):
 
 ```bash
 kubectl apply -k deploy/kustomize/operator
@@ -190,19 +190,19 @@ This creates:
 - A `Tailnet` CR pointing `loginUrl` at your headscale instance
 - A `ProxyClass` that injects `--login-server` into every proxy pod the
   operator spawns
-- A headtotails-specific `Ingress` that routes `/api/v2` and `/oauth/token`
-  to headtotails on the headscale hostname (separate from the Flux-managed
-  headscale Ingress, so it does not conflict)
+- A headtotails-specific `HTTPRoute` that routes `/api/v2` and `/oauth/token`
+  to headtotails on the headscale hostname
 
-### Step 3 — Patch the operator Deployment
+### Step 3 — Configure operator login server
 
-Add `TAILSCALE_API_URL` to the operator's Deployment so it sends management
-API calls to headtotails instead of `api.tailscale.com`:
+Set the operator login server to your shared hostname:
 
-```yaml
-env:
-  - name: TAILSCALE_API_URL
-    value: "https://headscale.example.com"
+```bash
+helm upgrade --install tailscale-operator tailscale/tailscale-operator \
+  --namespace tailscale --create-namespace \
+  --set-string loginServer="https://headscale.example.com" \
+  --set-string oauth.clientId="<OAUTH_CLIENT_ID>" \
+  --set-string oauth.clientSecret="<OAUTH_CLIENT_SECRET>"
 ```
 
 The operator will then `POST /oauth/token` with the credentials from the
@@ -236,6 +236,9 @@ kubectl apply -k deploy/kustomize/overlays/production
 # 2. Wire the Tailscale operator (edit headscale.example.com placeholders first)
 kubectl apply -k deploy/kustomize/operator
 ```
+
+For a dedicated Gateway API deployment guide with examples, see
+[`docs/gateway-api-deployment.md`](docs/gateway-api-deployment.md).
 
 ## API
 

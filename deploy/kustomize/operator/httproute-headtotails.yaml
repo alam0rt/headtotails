@@ -1,0 +1,34 @@
+# HTTPRoute for management API paths routed to headtotails.
+#
+# This route is intended to attach to an existing Gateway.
+# Update parentRefs and hostnames to match your environment.
+#
+# If your Gateway lives in a different namespace, ensure the listener allows
+# routes from namespace "headscale" (listener.allowedRoutes).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: headtotails-management
+  namespace: headscale
+spec:
+  parentRefs:
+    - name: public # CHANGEME: Gateway name
+      namespace: ingress-system # CHANGEME: Gateway namespace
+      sectionName: https # CHANGEME: listener section name (optional)
+  hostnames:
+    - headscale.example.com # CHANGEME
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/v2
+      backendRefs:
+        - name: headtotails
+          port: 8080
+    - matches:
+        - path:
+            type: Exact
+            value: /oauth/token
+      backendRefs:
+        - name: headtotails
+          port: 8080

@@ -1,9 +1,9 @@
 # Tailnet CR — tells the Tailscale operator to use headscale as its control plane
-# and headtotails as the management API, via the shared ingress hostname.
+# and headtotails as the management API, via the shared gateway hostname.
 #
 # loginUrl must point to the public URL of your headscale server.
 # The operator's management API calls are routed to headtotails via the
-# /api/v2 and /oauth/token paths on that same host (see ingress.yaml).
+# /api/v2 and /oauth/token paths on that same host (see httproute-headtotails.yaml).
 #
 # ops-kube: set loginUrl to your headscale public URL, e.g.:
 #   https://headscale.example.com

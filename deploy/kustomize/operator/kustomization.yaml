@@ -4,6 +4,8 @@ kind: Kustomization
 # This overlay wires the Tailscale Kubernetes operator to use headscale
 # as its VPN control plane and headtotails as its management API.
 #
+# This overlay uses Gateway API (HTTPRoute), not ingress-nginx.
+#
 # It is intended to be consumed by ops-kube alongside the headtotails
 # production overlay. Apply it after the operator is installed:
 #
@@ -22,15 +24,15 @@ kind: Kustomization
 #   3. Ensure a dedicated headscale user exists for the operator:
 #        headscale users create tailscale-operator
 #      Set TAILNET_NAME=tailscale-operator in secret.env accordingly.
-#   4. Patch your Tailscale operator Deployment to add:
-#        env:
-#          - name: TAILSCALE_API_URL
-#            value: "https://headscale.example.com"
-#      This redirects the operator's management API calls to headtotails
-#      via the ingress paths /api/v2 and /oauth/token.
+#   4. Configure the HTTPRoute parentRefs in httproute-headtotails.yaml
+#      to attach to your existing Gateway listener for this host.
+#   5. Configure the operator with:
+#        --set-string loginServer="https://headscale.example.com"
+#      This makes operator control/API calls target the shared host, where
+#      Gateway routes /api/v2 and /oauth/token to headtotails.
 
 resources:
   - tailscale-namespace.yaml
   - tailnet.yaml
   - proxyclass.yaml
-  - ingress.yaml
+  - httproute-headtotails.yaml
