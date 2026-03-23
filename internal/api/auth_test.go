@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -190,3 +192,35 @@ func TestBearerAuthMiddleware(t *testing.T) {
 
 func futureTime() time.Time { return time.Now().Add(time.Hour) }
 func pastTime() time.Time   { return time.Now().Add(-time.Hour) }
+
+func TestTokenStorePurge(t *testing.T) {
+	store := &tokenStore{
+		tokens: map[string]tokenEntry{
+			"expired": {expiry: time.Now().Add(-time.Minute)},
+			"valid":   {expiry: time.Now().Add(time.Minute)},
+		},
+	}
+
+	store.purge()
+
+	_, expiredOK := store.lookup("expired")
+	_, validOK := store.lookup("valid")
+	assert.False(t, expiredOK)
+	assert.True(t, validOK)
+}
+
+func TestParseOAuthCredentialsParseFormError(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/oauth/token", io.NopCloser(errorReader{}))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	id, secret, ok := parseOAuthCredentials(req)
+	assert.False(t, ok)
+	assert.Empty(t, id)
+	assert.Empty(t, secret)
+}
+
+type errorReader struct{}
+
+func (errorReader) Read(_ []byte) (int, error) {
+	return 0, errors.New("read failure")
+}
