@@ -69,6 +69,21 @@ headtotails is configured entirely via environment variables:
 | `TLS_CERT` | | — | Path to TLS certificate (enables HTTPS) |
 | `TLS_KEY` | | — | Path to TLS private key |
 
+### Scaling / replicas
+
+`headtotails` can be deployed with multiple replicas, but OAuth bearer tokens are
+currently stored in-memory per pod. In active-active load balancing, a token
+issued by one replica may be rejected by another (`401 invalid or expired token`).
+
+For reliable operation, use one of:
+- **Single replica**
+- **Sticky sessions** at the ingress/load balancer, so `/oauth/token` and
+  subsequent `/api/v2/...` requests land on the same pod
+- **Headscale API key auth** (stateless path used by some clients)
+
+True active-active without stickiness would require a shared token store (or a
+fully stateless token validation design).
+
 ## Quickstart (Docker)
 
 ```bash
@@ -258,6 +273,8 @@ curl http://localhost:8080/healthz
 ```bash
 curl http://localhost:8080/metrics
 ```
+
+For the generated custom metric reference and production monitoring notes, see [`docs/metrics.md`](docs/metrics.md).
 
 ## Development
 

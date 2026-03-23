@@ -20,7 +20,9 @@ test-race:
 
 ## generate: Regenerate mocks (requires mockery v2 on PATH).
 generate:
+	go generate ./...
 	mockery --name HeadscaleClient --dir internal/headscale \
+	        --structname MockHeadscaleClient \
 	        --output internal/headscale --outpkg headscale \
 	        --filename mock_client.go
 

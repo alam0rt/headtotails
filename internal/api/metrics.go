@@ -13,21 +13,25 @@ import (
 )
 
 var (
+	requestsTotalDoc   = metricDocByName("headtotails_requests_total")
+	requestDurationDoc = metricDocByName("headtotails_request_duration_seconds")
+	grpcErrorsTotalDoc = metricDocByName("headtotails_grpc_errors_total")
+
 	requestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "headtotails_requests_total",
-		Help: "Total number of HTTP requests handled by headtotails.",
-	}, []string{"method", "path", "status"})
+		Name: requestsTotalDoc.Name,
+		Help: requestsTotalDoc.Help,
+	}, requestsTotalDoc.Labels)
 
 	requestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "headtotails_request_duration_seconds",
-		Help:    "Duration of HTTP requests handled by headtotails.",
+		Name:    requestDurationDoc.Name,
+		Help:    requestDurationDoc.Help,
 		Buckets: prometheus.DefBuckets,
-	}, []string{"method", "path"})
+	}, requestDurationDoc.Labels)
 
 	grpcErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "headtotails_grpc_errors_total",
-		Help: "Total number of gRPC errors returned by headscale.",
-	}, []string{"grpc_code"})
+		Name: grpcErrorsTotalDoc.Name,
+		Help: grpcErrorsTotalDoc.Help,
+	}, grpcErrorsTotalDoc.Labels)
 )
 
 func init() {
