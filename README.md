@@ -293,6 +293,9 @@ make integration-test
 
 # Lint
 make lint
+
+# Install git hooks (runs generate + lint + unit tests on commit)
+make install-hooks
 ```
 
 ## Testing

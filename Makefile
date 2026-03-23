@@ -1,4 +1,4 @@
-.PHONY: build test generate lint docker-build integration-test clean
+.PHONY: build test generate lint docker-build integration-test clean install-hooks
 
 # Use CGO_ENABLED=0 for portability; the race detector requires gcc.
 BUILD_FLAGS ?= CGO_ENABLED=0 GOFLAGS="-mod=mod"
@@ -41,3 +41,9 @@ integration-test:
 ## clean: Remove build artifacts.
 clean:
 	rm -f $(BINARY)
+
+## install-hooks: Install repository pre-commit hook into .git/hooks.
+install-hooks:
+	mkdir -p .git/hooks
+	cp scripts/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit

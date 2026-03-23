@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+echo "[pre-commit] running generation checks"
+make generate
+
+# If generation changed tracked files, stop so the user can review and stage.
+if ! git diff --quiet -- .; then
+  echo "[pre-commit] generated files changed; review and stage updates, then commit again"
+  git status --short
+  exit 1
+fi
+
+echo "[pre-commit] running lint"
+make lint
+
+echo "[pre-commit] running unit tests"
+make test
+
+echo "[pre-commit] all checks passed"
