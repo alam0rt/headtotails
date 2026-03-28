@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       build:
-        description: "Build segment after 0.28. (e.g. 7)"
+        description: "Build number appended to the Tailscale API major version (e.g. 7 → 0.28.7)"
         required: true
         type: string
       patch:
@@ -28,8 +28,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release_version: ${{ steps.compute.outputs.release_version }}
-      image_tag: ${{ steps.compute.outputs.image_tag }}
+      ts_api_major: ${{ steps.compute.outputs.ts_api_major }}
+      image_tags: ${{ steps.compute.outputs.image_tags }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Compute version
         id: compute
         shell: bash
@@ -48,13 +51,33 @@ jobs:
             exit 1
           fi
 
-          version="0.28.${build}"
+          # Extract the target Tailscale API version from source.
+          ts_api_full=$(grep -oP 'targetTailscaleAPIVersion\s*=\s*"\K[^"]+' cmd/headtotails/main.go)
+          if [[ -z "${ts_api_full}" ]]; then
+            echo "Could not extract targetTailscaleAPIVersion from cmd/headtotails/main.go" >&2
+            exit 1
+          fi
+          # Major is the first two segments, e.g. "0.28" from "0.28.0".
+          ts_api_major="${ts_api_full%.*}"
+
+          version="${ts_api_major}.${build}"
           if [[ -n "${patch}" ]]; then
             version="${version}-${patch}"
           fi
 
+          image_base="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+
+          # Three tags per release:
+          #   1. Exact version       — e.g. 0.28.7 or 0.28.7-rc1
+          #   2. Tailscale API compat — e.g. ts-api-0.28 (floating)
+          #   3. latest                              (floating)
+          tags="${image_base}:${version}"
+          tags="${tags},${image_base}:ts-api-${ts_api_major}"
+          tags="${tags},${image_base}:latest"
+
           echo "release_version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "image_tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${version}" >> "${GITHUB_OUTPUT}"
+          echo "ts_api_major=${ts_api_major}" >> "${GITHUB_OUTPUT}"
+          echo "image_tags=${tags}" >> "${GITHUB_OUTPUT}"
 
   # ── Build & push container image ───────────────────────────────────────────
   docker:
@@ -83,7 +106,9 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ${{ needs.version.outputs.image_tag }}
+          tags: ${{ needs.version.outputs.image_tags }}
+          build-args: |
+            VERSION=${{ needs.version.outputs.release_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
