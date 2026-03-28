@@ -1,0 +1,167 @@
+# DaemonSet — runs a tailscale proxy on every node, exposing each node
+# directly onto the tailnet. Useful for SSH access to cluster nodes or
+# node-level monitoring over the tailnet.
+#
+# Unlike the operator-managed resources (03–06), this DaemonSet manages
+# its own auth key retrieval and tailscaled lifecycle. Each pod:
+#   1. Obtains an OAuth token from headtotails
+#   2. Creates a single-use, ephemeral auth key
+#   3. Runs tailscaled with --login-server pointed at headscale
+#
+# Exercises:
+#   POST /api/v2/oauth/token                (obtain bearer token)
+#   POST /api/v2/tailnet/-/keys             (create ephemeral auth key)
+#   GET  /api/v2/device/{deviceId}          (headscale registers device)
+#   POST /api/v2/device/{deviceId}/tags     (tag applied via auth key)
+#
+# Prerequisites:
+#   - 00-namespace.yaml applied
+#   - headtotails running and reachable at HEADTOTAILS_URL
+#   - operator-oauth secret (or equivalent) with valid client credentials
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tailscale-node
+  namespace: demo
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tailscale-node-oauth
+  namespace: demo
+  annotations:
+    # CHANGEME: populate with your headtotails OAuth credentials.
+    description: "OAuth credentials for headtotails auth key bootstrap"
+stringData:
+  client_id: "CHANGEME"
+  client_secret: "CHANGEME"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tailscale-node
+  namespace: demo
+  labels:
+    app: tailscale-node
+spec:
+  selector:
+    matchLabels:
+      app: tailscale-node
+  template:
+    metadata:
+      labels:
+        app: tailscale-node
+    spec:
+      serviceAccountName: tailscale-node
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      initContainers:
+        # Bootstrap: obtain an ephemeral auth key from headtotails.
+        - name: get-authkey
+          image: curlimages/curl:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              # 1. Get OAuth token
+              TOKEN=$(curl -fsSL -X POST "${HEADTOTAILS_URL}/api/v2/oauth/token" \
+                -u "${OAUTH_CLIENT_ID}:${OAUTH_CLIENT_SECRET}" \
+                -d "grant_type=client_credentials" | \
+                sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+
+              if [ -z "${TOKEN}" ]; then
+                echo "ERROR: failed to obtain OAuth token" >&2
+                exit 1
+              fi
+
+              # 2. Create ephemeral, pre-authorized auth key
+              AUTHKEY=$(curl -fsSL -X POST "${HEADTOTAILS_URL}/api/v2/tailnet/-/keys" \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "capabilities": {
+                    "devices": {
+                      "create": {
+                        "reusable": false,
+                        "ephemeral": true,
+                        "preauthorized": true,
+                        "tags": ["tag:k8s", "tag:node"]
+                      }
+                    }
+                  },
+                  "expirySeconds": 300
+                }' | sed -n 's/.*"key":"\([^"]*\)".*/\1/p')
+
+              if [ -z "${AUTHKEY}" ]; then
+                echo "ERROR: failed to create auth key" >&2
+                exit 1
+              fi
+
+              echo "${AUTHKEY}" > /authkey/key
+              echo "Auth key written to /authkey/key"
+          env:
+            # CHANGEME: your headtotails base URL.
+            - name: HEADTOTAILS_URL
+              value: "https://hs.example.com"
+            - name: OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: tailscale-node-oauth
+                  key: client_id
+            - name: OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: tailscale-node-oauth
+                  key: client_secret
+          volumeMounts:
+            - name: authkey
+              mountPath: /authkey
+      containers:
+        - name: tailscaled
+          image: ghcr.io/tailscale/tailscale:latest
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW"]
+          env:
+            # CHANGEME: your headscale public URL.
+            - name: TS_AUTHKEY
+              value: "file:/authkey/key"
+            - name: TS_EXTRA_ARGS
+              value: "--login-server=https://hs.example.com"
+            - name: TS_KUBE_SECRET
+              value: ""
+            - name: TS_USERSPACE
+              value: "false"
+            - name: TS_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: TS_STATE_DIR
+              value: "/var/lib/tailscale"
+          volumeMounts:
+            - name: authkey
+              mountPath: /authkey
+              readOnly: true
+            - name: tun
+              mountPath: /dev/net/tun
+            - name: state
+              mountPath: /var/lib/tailscale
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: authkey
+          emptyDir:
+            medium: Memory
+        - name: tun
+          hostPath:
+            path: /dev/net/tun
+        - name: state
+          hostPath:
+            path: /var/lib/tailscale/node-proxy
+            type: DirectoryOrCreate

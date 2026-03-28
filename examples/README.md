@@ -28,6 +28,7 @@ secret must match headtotails' `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET`.
 | `05-subnet-router.yaml` | `POST /tailnet/-/keys`, `POST /device/{id}/routes` |
 | `06-exit-node.yaml` | `POST /tailnet/-/keys`, `POST /device/{id}/routes` |
 | `07-acl-policy.sh` | `POST /oauth/token`, `GET/POST /tailnet/-/acl` |
+| `08-node-daemonset.yaml` | `POST /oauth/token`, `POST /tailnet/-/keys`, `POST /device/{id}/tags` |
 
 ## Apply order
 
@@ -41,6 +42,9 @@ kubectl apply -f examples/03-expose-service.yaml
 kubectl apply -f examples/04-expose-ingress.yaml
 kubectl apply -f examples/05-subnet-router.yaml
 kubectl apply -f examples/06-exit-node.yaml
+
+# DaemonSet — expose every node onto the tailnet:
+kubectl apply -f examples/08-node-daemonset.yaml
 
 # ACL policy (shell script, not a k8s resource):
 bash examples/07-acl-policy.sh
