@@ -87,6 +87,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Make package public
+        run: |
+          PACKAGE_NAME="${{ github.event.repository.name }}"
+          OWNER="${{ github.repository_owner }}"
+          # Determine if owner is an org or user
+          ACCOUNT_TYPE=$(gh api users/${OWNER} --jq '.type')
+          if [ "$ACCOUNT_TYPE" = "Organization" ]; then
+            gh api --method PATCH \
+              /orgs/${OWNER}/packages/container/${PACKAGE_NAME} \
+              -f visibility=public
+          else
+            gh api --method PATCH \
+              /user/packages/container/${PACKAGE_NAME} \
+              -f visibility=public
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # ── GitHub Release with binaries ───────────────────────────────────────────
   release:
     name: GitHub Release
