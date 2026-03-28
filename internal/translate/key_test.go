@@ -64,6 +64,11 @@ func TestKeyRequestToCreatePreAuthKeyRequestWithExpiry(t *testing.T) {
 }
 
 func TestKeyRequestToCreatePreAuthKeyRequestWithoutExpiry(t *testing.T) {
+	start := time.Now()
 	got := KeyRequestToCreatePreAuthKeyRequest(model.CreateKeyRequest{}, 1)
-	assert.Nil(t, got.Expiration)
+	end := time.Now()
+	// When no expiry is given, the default is 1 hour.
+	require.NotNil(t, got.Expiration)
+	assert.True(t, got.Expiration.AsTime().After(start.Add(3599*time.Second)))
+	assert.True(t, got.Expiration.AsTime().Before(end.Add(3601*time.Second)))
 }

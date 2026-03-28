@@ -54,10 +54,15 @@ func KeyRequestToCreatePreAuthKeyRequest(r model.CreateKeyRequest, userID uint64
 		AclTags:   r.Capabilities.Devices.Create.Tags,
 	}
 
-	if r.ExpirySeconds > 0 {
-		expiry := time.Now().Add(time.Duration(r.ExpirySeconds) * time.Second)
-		req.Expiration = timestamppb.New(expiry)
+	// Default to 1 hour if no expiry is specified. headscale stores a zero
+	// time when Expiration is nil, which it then treats as already-expired
+	// when validating the key during node registration.
+	expirySeconds := r.ExpirySeconds
+	if expirySeconds <= 0 {
+		expirySeconds = 3600 // 1 hour
 	}
+	expiry := time.Now().Add(time.Duration(expirySeconds) * time.Second)
+	req.Expiration = timestamppb.New(expiry)
 
 	return req
 }
