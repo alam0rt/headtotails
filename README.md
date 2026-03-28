@@ -1,5 +1,8 @@
 # headtotails
 
+<img width="848" height="169" alt="image" src="https://github.com/user-attachments/assets/eb84259a-0174-402d-bc64-09ec3f6c220b" />
+
+
 [![Docs](https://img.shields.io/badge/docs-github%20pages-blue)](https://alam0rt.github.io/headtotails/)
 
 **headtotails** is a lightweight Go service that exposes the [Tailscale REST API v2](https://tailscale.com/api) as a thin translation layer over the [headscale](https://github.com/juanfont/headscale) gRPC API.
