@@ -50,6 +50,32 @@ kubectl apply -f examples/08-node-daemonset.yaml
 bash examples/07-acl-policy.sh
 ```
 
+## Important notes
+
+### ProxyClass configuration
+
+Do **not** set `TS_EXTRA_ARGS` in your ProxyClass. Newer tailscale proxy images
+use `TS_EXPERIMENTAL_VERSIONED_CONFIG_DIR` internally, which conflicts with
+`TS_EXTRA_ARGS`, `TS_HOSTNAME`, and `TS_AUTHKEY` environment variables. The
+`Tailnet` CR's `loginUrl` field handles login server configuration for all proxies.
+
+### Route approval
+
+headscale requires manual route approval via CLI. When the operator creates a
+Connector (exit node or subnet router), the proxy will advertise routes, but
+they won't be active until you run:
+
+```bash
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes approve-routes --identifier <ID> --routes "<CIDR1>,<CIDR2>"
+```
+
+### Pre-auth key expiry
+
+headtotails defaults to a 1-hour expiry when the operator creates auth keys
+without specifying `expirySeconds`. This prevents zero-time expiration issues
+with headscale's key validation.
+
 ## Clean up
 
 ```bash

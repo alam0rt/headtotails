@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>headtotails Examples</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="container">
+        <a href="./index.html">headtotails</a>
+        <a href="./usage.html">Usage</a>
+        <a href="./configuration.html">Configuration</a>
+        <a href="./kubernetes.html">Kubernetes</a>
+        <a href="./examples.html">Examples</a>
+      </div>
+    </nav>
+
+    <main class="container">
+      <h1>Real-World Examples</h1>
+      <p class="muted">
+        These walkthroughs have been tested end-to-end against a production
+        headscale&nbsp;0.28 cluster with the Tailscale Kubernetes operator. Each
+        section shows the exact commands and manifests that were used.
+      </p>
+
+      <h2 id="prerequisites">Prerequisites</h2>
+      <div class="card">
+        <ul>
+          <li><strong>headscale&nbsp;≥&nbsp;0.28</strong> running and reachable</li>
+          <li><strong>headtotails</strong> deployed with Gateway&nbsp;API / Ingress routing
+              (<code>/api/v2</code> and <code>/oauth/token</code> → headtotails,
+              <code>/</code> → headscale) on a shared hostname</li>
+          <li><strong>Tailscale Kubernetes operator</strong> installed with
+              <code>OPERATOR_LOGIN_SERVER</code> pointing at your headscale URL</li>
+          <li>A <code>Tailnet</code> CR and <code>ProxyClass</code> CR applied
+              (see <a href="./kubernetes.html">Kubernetes guide</a>)</li>
+          <li>The <code>operator-oauth</code> secret in the <code>tailscale</code>
+              namespace matching headtotails'
+              <code>OAUTH_CLIENT_ID</code> / <code>OAUTH_CLIENT_SECRET</code></li>
+        </ul>
+      </div>
+
+      <h2 id="expose-service">Expose a Service onto the tailnet</h2>
+      <p>
+        The simplest use case: put an in-cluster Service on your tailnet so any
+        device can reach it by name. The operator handles auth key creation,
+        proxy pod lifecycle, and device registration automatically via headtotails.
+      </p>
+
+      <h3>1. Create the namespace</h3>
+      <pre><code>kubectl create namespace demo</code></pre>
+
+      <h3>2. Deploy the workload and annotated Service</h3>
+      <pre><code>kubectl apply -f examples/03-expose-service.yaml</code></pre>
+      <p>The manifest deploys a <code>traefik/whoami</code> pod and a Service with
+         tailscale annotations:</p>
+      <pre><code>annotations:
+  tailscale.com/expose: "true"
+  tailscale.com/proxy-class: headscale
+  tailscale.com/tags: "tag:k8s,tag:demo"
+  tailscale.com/hostname: "demo-whoami"</code></pre>
+
+      <h3>3. Verify</h3>
+      <pre><code># The operator creates a proxy StatefulSet — watch for it:
+kubectl get pods -A | grep whoami
+
+# Check the device registered in headscale:
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes list | grep whoami</code></pre>
+      <p>
+        You should see the proxy pod <code>ts-whoami-*</code> running in the
+        <code>tailscale</code> namespace and the device online in headscale
+        with your configured tags.
+      </p>
+
+      <h3>What happens under the hood</h3>
+      <div class="card">
+        <ol>
+          <li>Operator calls <code>POST /api/v2/oauth/token</code> on headtotails to get a bearer token</li>
+          <li>Operator calls <code>POST /api/v2/tailnet/-/keys</code> to create a pre-authorized auth key</li>
+          <li>Operator spawns a proxy pod with the auth key — it registers with headscale as a WireGuard peer</li>
+          <li>Operator calls <code>POST /api/v2/device/{id}/tags</code> to apply the requested ACL tags</li>
+          <li>Traffic to <code>demo-whoami</code> on the tailnet is forwarded to the in-cluster Service</li>
+        </ol>
+      </div>
+
+      <h2 id="exit-node">Set up an exit node</h2>
+      <p>
+        Route all traffic from any tailnet device through the cluster. This uses
+        the <code>Connector</code> CRD — just a few lines of YAML.
+      </p>
+
+      <h3>1. Apply the Connector</h3>
+      <pre><code>kubectl apply -f examples/06-exit-node.yaml</code></pre>
+      <p>The manifest:</p>
+      <pre><code>apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: exit-node
+  namespace: demo
+spec:
+  proxyClass: headscale
+  tags:
+    - "tag:k8s"
+    - "tag:exit"
+  exitNode: true</code></pre>
+
+      <h3>2. Approve the exit-node routes in headscale</h3>
+      <p>
+        The proxy advertises <code>0.0.0.0/0</code> and <code>::/0</code> but
+        headscale requires explicit approval:
+      </p>
+      <pre><code># Find the node ID:
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes list | grep exit-node
+
+# Approve the routes (replace 24 with your node ID):
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes approve-routes \
+    --identifier 24 \
+    --routes "0.0.0.0/0,::/0"
+
+# Confirm routes are serving:
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes list-routes | grep exit-node</code></pre>
+
+      <h3>3. Use the exit node from a client</h3>
+      <pre><code># From any device on your tailnet:
+tailscale set --exit-node=exit-node-connector
+
+# Verify — your public IP should now be the cluster's egress IP:
+curl -s https://ifconfig.me
+
+# Stop using the exit node:
+tailscale set --exit-node=</code></pre>
+
+      <h2 id="subnet-router">Expose cluster networks via subnet router</h2>
+      <p>
+        Advertise pod and service CIDRs so tailnet devices can reach cluster-internal
+        IPs directly — useful for debugging, monitoring dashboards, or database access.
+      </p>
+
+      <h3>1. Apply the Connector</h3>
+      <pre><code>kubectl apply -f examples/05-subnet-router.yaml</code></pre>
+      <p>Edit the <code>routes</code> to match your cluster's CIDR ranges:</p>
+      <pre><code>apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: subnet-router
+  namespace: demo
+spec:
+  proxyClass: headscale
+  tags:
+    - "tag:k8s"
+    - "tag:subnet"
+  subnetRouter:
+    routes:
+      - "10.0.0.0/16"      # pod CIDR
+      - "10.96.0.0/12"     # service CIDR</code></pre>
+
+      <h3>2. Approve the routes</h3>
+      <pre><code># Find the node ID:
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes list | grep subnet-router
+
+# Approve (replace ID and CIDRs with yours):
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes approve-routes \
+    --identifier &lt;ID&gt; \
+    --routes "10.0.0.0/16,10.96.0.0/12"</code></pre>
+
+      <h2 id="important-notes">Important notes</h2>
+      <div class="card">
+        <h3>ProxyClass configuration</h3>
+        <p>
+          Do <strong>not</strong> set <code>TS_EXTRA_ARGS</code> in your ProxyClass.
+          Newer tailscale proxy images use <code>TS_EXPERIMENTAL_VERSIONED_CONFIG_DIR</code>
+          internally, which conflicts with <code>TS_EXTRA_ARGS</code>, <code>TS_HOSTNAME</code>,
+          and <code>TS_AUTHKEY</code> environment variables. The <code>Tailnet</code> CR's
+          <code>loginUrl</code> field handles the login server configuration for all proxies.
+        </p>
+
+        <h3>Pre-auth key expiry</h3>
+        <p>
+          headtotails defaults to a 1-hour expiry when the operator creates auth keys
+          without specifying <code>expirySeconds</code>. This prevents zero-time
+          expiration issues with headscale's key validation.
+        </p>
+
+        <h3>Route approval</h3>
+        <p>
+          headscale requires manual route approval via the CLI. When the operator creates
+          a Connector (exit node or subnet router), the proxy will advertise the routes,
+          but they won't be active until you run
+          <code>headscale nodes approve-routes</code>. This is a headscale security
+          feature — there is no API endpoint to auto-approve routes.
+        </p>
+      </div>
+
+      <h2 id="clean-up">Clean up</h2>
+      <pre><code># Remove all demo resources:
+kubectl delete connector exit-node subnet-router -n demo --ignore-not-found
+kubectl delete -f examples/03-expose-service.yaml --ignore-not-found
+kubectl delete namespace demo</code></pre>
+
+      <div class="footer">
+        <p>
+          Edit this page:
+          <a href="https://github.com/alam0rt/headtotails/edit/main/site/examples.html">site/examples.html</a>
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

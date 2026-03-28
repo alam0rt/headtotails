@@ -245,6 +245,55 @@ kubectl apply -k deploy/kustomize/operator
 For a dedicated Gateway API deployment guide with examples, see
 [`docs/gateway-api-deployment.md`](docs/gateway-api-deployment.md).
 
+## Real-World Examples
+
+The [`examples/`](examples/) directory contains tested manifests for common
+use cases. These have been verified end-to-end against headscale 0.28 with the
+Tailscale Kubernetes operator.
+
+### Expose a Service onto the tailnet
+
+```bash
+kubectl create namespace demo
+kubectl apply -f examples/03-expose-service.yaml
+```
+
+The operator automatically creates an auth key via headtotails, spawns a proxy
+pod, and registers the device with headscale. The service becomes reachable as
+`demo-whoami` on the tailnet.
+
+### Set up an exit node
+
+```bash
+kubectl apply -f examples/06-exit-node.yaml
+
+# Approve exit-node routes in headscale (replace ID with yours):
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes approve-routes --identifier <ID> --routes "0.0.0.0/0,::/0"
+
+# Use from any tailnet device:
+tailscale set --exit-node=exit-node-connector
+```
+
+### Subnet router
+
+```bash
+kubectl apply -f examples/05-subnet-router.yaml
+
+# Approve the subnet routes:
+kubectl exec -n headscale deployment/headscale -- \
+  headscale nodes approve-routes --identifier <ID> --routes "10.0.0.0/16,10.96.0.0/12"
+```
+
+> **Note:** headscale requires manual route approval via CLI. The proxy will
+> advertise routes automatically, but they won't be active until approved.
+
+> **Note:** Do **not** set `TS_EXTRA_ARGS` in your ProxyClass. Newer tailscale
+> proxy images conflict with this env var. The `Tailnet` CR's `loginUrl` field
+> handles login server configuration for all proxies.
+
+Full walkthrough with verification steps: [examples](https://alam0rt.github.io/headtotails/examples.html)
+
 ## API
 
 ### OAuth token
