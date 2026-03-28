@@ -88,6 +88,12 @@ func main() {
 		cfg.OAuthClientID,
 		cfg.OAuthClientSecret,
 		cfg.OAuthHMACSecret,
+		api.WIFConfig{
+			Enabled:   cfg.WIFEnabled,
+			IssuerURL: cfg.WIFIssuerURL,
+			Audience:  cfg.WIFAudience,
+			ClientID:  cfg.WIFClientID,
+		},
 	)
 	r := router.Build()
 

@@ -19,6 +19,16 @@ type Router struct {
 	clientID        string
 	clientSecret    string
 	hmacSecret      string
+	wifValidator    JWTValidator // nil if WIF is not enabled
+	wifClientID     string       // client_id for WIF token exchange
+}
+
+// WIFConfig holds optional Workload Identity Federation settings.
+type WIFConfig struct {
+	Enabled   bool
+	IssuerURL string
+	Audience  string
+	ClientID  string
 }
 
 // NewRouter constructs a new Router.
@@ -27,8 +37,9 @@ func NewRouter(
 	tailnetName string,
 	headscaleAPIKey string,
 	clientID, clientSecret, hmacSecret string,
+	wif WIFConfig,
 ) *Router {
-	return &Router{
+	ro := &Router{
 		hs:              hs,
 		tailnetName:     tailnetName,
 		headscaleAPIKey: headscaleAPIKey,
@@ -36,7 +47,12 @@ func NewRouter(
 		clientID:        clientID,
 		clientSecret:    clientSecret,
 		hmacSecret:      hmacSecret,
+		wifClientID:     wif.ClientID,
 	}
+	if wif.Enabled {
+		ro.wifValidator = NewOIDCValidator(wif.IssuerURL, wif.Audience, wif.ClientID, nil)
+	}
+	return ro
 }
 
 // Build constructs and returns the chi.Router.
@@ -57,7 +73,13 @@ func (ro *Router) Build() chi.Router {
 	r.Post("/oauth/token", oauthHandler)
 	r.Post("/api/v2/oauth/token", oauthHandler)
 
-	// Health check — no auth required.
+	// WIF token exchange endpoint — no auth required (JWT is the credential).
+	// Registered at both paths to match what the tailscale operator expects.
+	tokenExchangeHandler := TokenExchangeHandler(ro.wifValidator, ro.hmacSecret, ro.wifClientID, ro.tokenStore)
+	r.Post("/oauth/token-exchange", tokenExchangeHandler)
+	r.Post("/api/v2/oauth/token-exchange", tokenExchangeHandler)
+
+		// Health check — no auth required.
 	r.Get("/healthz", healthzHandler)
 
 	// Prometheus metrics — no auth required.

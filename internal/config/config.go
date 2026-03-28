@@ -18,6 +18,10 @@ type Config struct {
 	OAuthClientSecret string `envconfig:"OAUTH_CLIENT_SECRET" required:"true"`
 	TLSCert           string `envconfig:"TLS_CERT"`
 	TLSKey            string `envconfig:"TLS_KEY"`
+	WIFEnabled        bool   `envconfig:"WIF_ENABLED" default:"false"`
+	WIFIssuerURL      string `envconfig:"WIF_ISSUER_URL"`
+	WIFAudience       string `envconfig:"WIF_AUDIENCE"`
+	WIFClientID       string `envconfig:"WIF_CLIENT_ID"`
 	LogLevel          string `envconfig:"LOG_LEVEL" default:"info"`
 	LogAddSource      bool   `envconfig:"LOG_ADD_SOURCE" default:"false"`
 	Environment       string `envconfig:"ENVIRONMENT" default:"production"`
@@ -56,6 +60,20 @@ func (c *Config) validate() error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("required config values must be non-empty: %s", strings.Join(missing, ", "))
+	}
+
+	// When WIF is enabled, issuer URL and client ID are required.
+	if c.WIFEnabled {
+		var wifMissing []string
+		if strings.TrimSpace(c.WIFIssuerURL) == "" {
+			wifMissing = append(wifMissing, "WIF_ISSUER_URL")
+		}
+		if strings.TrimSpace(c.WIFClientID) == "" {
+			wifMissing = append(wifMissing, "WIF_CLIENT_ID")
+		}
+		if len(wifMissing) > 0 {
+			return fmt.Errorf("WIF_ENABLED=true requires non-empty: %s", strings.Join(wifMissing, ", "))
+		}
 	}
 	return nil
 }
