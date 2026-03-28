@@ -1,0 +1,20 @@
+# Exit Node — routes all tailnet traffic through this cluster.
+#
+# Exercises:
+#   POST   /api/v2/oauth/token
+#   POST   /api/v2/tailnet/-/keys
+#   GET    /api/v2/device/{deviceId}
+#   POST   /api/v2/device/{deviceId}/authorized
+#   POST   /api/v2/device/{deviceId}/tags
+#   POST   /api/v2/device/{deviceId}/routes              (approve exit-node route 0.0.0.0/0, ::/0)
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: exit-node
+  namespace: demo
+spec:
+  proxyClass: headscale
+  tags:
+    - "tag:k8s"
+    - "tag:exit"
+  exitNode: true

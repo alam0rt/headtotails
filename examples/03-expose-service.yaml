@@ -1,0 +1,53 @@
+# Expose a simple in-cluster Service onto the tailnet.
+#
+# The operator sees the tailscale.com/expose annotation, creates an auth key
+# via headtotails, then spins up a proxy pod that registers with headscale.
+#
+# Exercises:
+#   POST   /api/v2/oauth/token                             (token refresh)
+#   POST   /api/v2/tailnet/-/keys                          (create auth key)
+#   GET    /api/v2/device/{deviceId}                       (poll device status)
+#   POST   /api/v2/device/{deviceId}/authorized            (authorize device)
+#   POST   /api/v2/device/{deviceId}/tags                  (set ACL tags)
+#   GET    /api/v2/tailnet/-/devices                       (list tailnet devices)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whoami
+  namespace: demo
+  labels:
+    app: whoami
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: whoami
+  template:
+    metadata:
+      labels:
+        app: whoami
+    spec:
+      containers:
+        - name: whoami
+          image: traefik/whoami:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami
+  namespace: demo
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/proxy-class: headscale
+    tailscale.com/tags: "tag:k8s,tag:demo"
+    tailscale.com/hostname: "demo-whoami"
+spec:
+  selector:
+    app: whoami
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

@@ -1,0 +1,6 @@
+# Namespace for demo workloads exposed via the Tailscale operator.
+# The tailscale namespace is created by the operator itself.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo

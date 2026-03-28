@@ -1,0 +1,18 @@
+# ProxyClass — configures proxy pods to connect to headscale instead of
+# the upstream Tailscale coordination server.
+#
+# No headtotails API calls — this is a client-side config injected into
+# every proxy pod that references proxyClass: headscale.
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyClass
+metadata:
+  name: headscale
+  namespace: tailscale
+spec:
+  statefulSet:
+    pod:
+      tailscaleContainer:
+        env:
+          - name: TS_EXTRA_ARGS
+            # CHANGEME: your headscale public URL.
+            value: "--login-server=https://hs.example.com"

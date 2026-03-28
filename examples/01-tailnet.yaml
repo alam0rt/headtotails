@@ -1,0 +1,23 @@
+# Tailnet CR — tells the operator to authenticate against headtotails
+# and register proxy pods with headscale.
+#
+# Exercises:
+#   POST /api/v2/oauth/token        (operator obtains bearer token)
+#   GET  /api/v2/tailnet/-/keys     (operator lists existing auth keys)
+#   POST /api/v2/tailnet/-/keys     (operator creates auth key for itself)
+#
+# Prerequisites:
+#   kubectl create secret generic operator-oauth \
+#     --namespace tailscale \
+#     --from-literal=client_id=<OAUTH_CLIENT_ID> \
+#     --from-literal=client_secret=<OAUTH_CLIENT_SECRET>
+apiVersion: tailscale.com/v1alpha1
+kind: Tailnet
+metadata:
+  name: headscale
+  namespace: tailscale
+spec:
+  credentials:
+    secretName: operator-oauth
+  # CHANGEME: your headscale public URL.
+  loginUrl: "https://hs.example.com"
